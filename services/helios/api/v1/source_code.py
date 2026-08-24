@@ -10,6 +10,7 @@ from helios.infrastructure.database import get_db_session
 from helios.models.project import Project
 from helios.models.finding import Finding
 from helios.core.source_code.analyzers.secret_detector import scan_text
+from helios.core.knowledge_graph.builder import sync_finding
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -41,6 +42,7 @@ async def analyze_source_code(
         findings_data = scan_text(request.code, request.filename)
 
         security_findings = []
+        touched_findings = []
         for f_data in findings_data:
             # Avoid duplicates within the same project scan
             res = await db.execute(
@@ -65,6 +67,7 @@ async def analyze_source_code(
                     ),
                 )
                 db.add(finding)
+                touched_findings.append(finding)
 
             security_findings.append({
                 "type": "VULNERABILITY",
@@ -74,6 +77,14 @@ async def analyze_source_code(
             })
 
         await db.commit()
+
+        try:
+            for finding in touched_findings:
+                await sync_finding(db, project.id, finding)
+            await db.commit()
+        except Exception:
+            logger.exception("Knowledge graph sync failed after source scan (non-fatal)")
+            await db.rollback()
 
         return {
             "id": str(uuid.uuid4()),

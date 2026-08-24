@@ -34,9 +34,9 @@ export const useWebSecurityStore = create<WebSecurityState>((set, get) => ({
           {
             id: 'mock-web-1',
             url: `${targetBase}/v1/users`,
-            method: 'GET',
+            method: 'GET' as const,
             vulnerability_type: 'BOLA (Broken Object Level Authorization)',
-            severity: 'CRITICAL',
+            severity: 'CRITICAL' as const,
             description: 'The endpoint does not validate if the requested user ID belongs to the authenticated user token, allowing data exfiltration of other users.',
             request_headers: `GET /v1/users/9999 HTTP/1.1\nHost: ${new URL(targetBase).hostname}\nAuthorization: Bearer eyJhbG... (User 1 token)`,
             response_headers: 'HTTP/1.1 200 OK\nContent-Type: application/json',
@@ -46,9 +46,9 @@ export const useWebSecurityStore = create<WebSecurityState>((set, get) => ({
           {
             id: 'mock-web-2',
             url: `${targetBase}/login`,
-            method: 'POST',
+            method: 'POST' as const,
             vulnerability_type: 'SQL Injection',
-            severity: 'HIGH',
+            severity: 'HIGH' as const,
             description: 'The username parameter is vulnerable to boolean-based blind SQL injection.',
             request_headers: `POST /login HTTP/1.1\nHost: ${new URL(targetBase).hostname}\nContent-Type: application/x-www-form-urlencoded`,
             request_body: 'username=admin\' OR 1=1--&password=foo',

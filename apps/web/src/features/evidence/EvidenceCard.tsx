@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Download, ShieldCheck, ShieldAlert, FileText, Image as ImageIcon, FileCode, CheckCircle2 } from 'lucide-react';
+import { Download, ShieldCheck, ShieldAlert, FileText } from 'lucide-react';
 import type { Evidence } from '../../hooks/useEvidence';
 import { useEvidence } from '../../hooks/useEvidence';
 import { cn } from '../../lib/utils';

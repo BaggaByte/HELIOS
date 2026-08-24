@@ -20,6 +20,15 @@ pub fn run() {
       // Spawn FS Watcher
       fs_watcher::start_watcher(app.handle().clone());
       
+      // Spawn Backend Sidecar
+      std::thread::spawn(|| {
+        std::process::Command::new("uv")
+            .args(["run", "uvicorn", "helios.main:app", "--port", "8000"])
+            .current_dir("../../services")
+            .spawn()
+            .expect("Failed to spawn backend process");
+      });
+      
       Ok(())
     })
     .invoke_handler(tauri::generate_handler![encryption::encrypt_file])

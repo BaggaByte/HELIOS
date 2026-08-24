@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Code2, FileCode2, Terminal, ShieldAlert, Activity, GitCommit, FileText, Settings, Upload } from 'lucide-react';
+import { Code2, FileCode2, Terminal, ShieldAlert, Activity, GitCommit, FileText, Upload } from 'lucide-react';
 import { useSourceCodeStore } from '../../stores/sourceCodeStore';
 import { cn } from '../../lib/utils';
-import type { CodeFinding } from '../../services/sourceCodeService';
+
 
 export function SourceCodeDashboard() {
   const { analyzedFiles, selectedFileId, isLoading, fetchAnalyzedFiles, selectFile } = useSourceCodeStore();

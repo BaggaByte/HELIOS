@@ -7,7 +7,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
 from helios.core.chat.engine import ChatEngine, ChatMessage
-from helios.core.agents.manager import agent_manager
+
 from helios.infrastructure.database import async_session_maker
 from helios.models.host import Host
 
@@ -96,34 +96,14 @@ async def chat_stream(websocket: WebSocket):
                 "message_id": assistant_msg_id
             })
 
-            # Check if this is an explicit agent/tool execution request
-            is_agent_request = any(keyword in msg.content.lower() for keyword in ["execute", "run", "scan", "agent"])
-            
             try:
-                if is_agent_request:
-                    async def update_status(status_text: str):
-                        await websocket.send_json({
-                            "type": "agent_status",
-                            "message_id": assistant_msg_id,
-                            "content": status_text
-                        })
-                        
-                    final_result = await agent_manager.execute_task(msg.content, update_status)
-                    
-                    # Send the final result as the message content
+                # 3. Stream tokens using standard chat engine
+                async for token in engine.generate_response(msg.content, history=history, recon_context=recon_context):
                     await websocket.send_json({
                         "type": "token",
                         "message_id": assistant_msg_id,
-                        "content": final_result
+                        "content": token
                     })
-                else:
-                    # 3. Stream tokens using standard chat engine
-                    async for token in engine.generate_response(msg.content, history=history, recon_context=recon_context):
-                        await websocket.send_json({
-                            "type": "token",
-                            "message_id": assistant_msg_id,
-                            "content": token
-                        })
                 
                 # 4. Send DONE event
                 await websocket.send_json({

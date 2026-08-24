@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { ShieldAlert, Search, Activity, Globe, ChevronRight, AlertTriangle, Bug } from 'lucide-react';
 import { useWebSecurityStore } from '../../stores/webSecurityStore';
 import { cn } from '../../lib/utils';
-import type { WebFinding } from '../../services/webSecurityService';
+
 
 export function WebSecurityDashboard() {
   const [scanTarget, setScanTarget] = useState('');

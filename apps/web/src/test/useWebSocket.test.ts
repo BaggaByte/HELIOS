@@ -12,12 +12,7 @@ import { useWebSocket } from '../hooks/useWebSocket'
 
 // ── Mock WebSocket ────────────────────────────────────────────────────────────
 
-type WsEventMap = {
-  open: Event
-  message: MessageEvent
-  close: CloseEvent
-  error: Event
-}
+
 
 class MockWebSocket {
   static instances: MockWebSocket[] = []
@@ -274,7 +269,7 @@ describe('reconnection', () => {
 
 describe('cleanup', () => {
   it('closes socket on unmount', () => {
-    const { result, unmount } = renderHook(() =>
+    const { unmount } = renderHook(() =>
       useWebSocket('ws://localhost/test')
     )
     act(() => {

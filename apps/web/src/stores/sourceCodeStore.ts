@@ -40,7 +40,7 @@ class VulnApp:
         return pickle.loads(payload)
 `;
 
-export const useSourceCodeStore = create<SourceCodeState>((set, get) => ({
+export const useSourceCodeStore = create<SourceCodeState>((set) => ({
   analyzedFiles: [],
   selectedFileId: null,
   isLoading: false,
@@ -65,10 +65,10 @@ export const useSourceCodeStore = create<SourceCodeState>((set, get) => ({
           ],
           classes: ['VulnApp'],
           security_findings: [
-            { type: 'VULNERABILITY', severity: 'HIGH', line: 12, description: 'Code execution via eval()' },
-            { type: 'VULNERABILITY', severity: 'HIGH', line: 15, description: 'Command injection via os.system()' },
-            { type: 'VULNERABILITY', severity: 'HIGH', line: 18, description: 'Command injection via subprocess.Popen()' },
-            { type: 'VULNERABILITY', severity: 'HIGH', line: 24, description: 'Insecure deserialization via pickle.loads()' }
+            { type: 'VULNERABILITY', severity: 'HIGH' as const, line: 12, description: 'Code execution via eval()' },
+            { type: 'VULNERABILITY', severity: 'HIGH' as const, line: 15, description: 'Command injection via os.system()' },
+            { type: 'VULNERABILITY', severity: 'HIGH' as const, line: 18, description: 'Command injection via subprocess.Popen()' },
+            { type: 'VULNERABILITY', severity: 'HIGH' as const, line: 24, description: 'Insecure deserialization via pickle.loads()' }
           ],
           analyzed_at: new Date().toISOString()
         }

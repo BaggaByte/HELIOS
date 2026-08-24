@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { graphService, type GraphData, type GraphNode } from '../services/graphService';
+import { graphService, type GraphData } from '../services/graphService';
 
 interface GraphState {
   data: GraphData;
@@ -13,7 +13,7 @@ interface GraphState {
   updateNodePosition: (id: string, x: number, y: number) => void;
 }
 
-export const useGraphStore = create<GraphState>((set, get) => ({
+export const useGraphStore = create<GraphState>((set) => ({
   data: { nodes: [], edges: [] },
   selectedNodeId: null,
   isLoading: false,

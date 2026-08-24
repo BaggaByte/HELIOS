@@ -13,6 +13,7 @@ from helios.models.project import Project
 from helios.models.host import Host
 from helios.models.service import Service
 from helios.core.recon.parsers.nmap import parse_nmap_xml
+from helios.core.knowledge_graph.builder import sync_host_with_services
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -189,6 +190,8 @@ async def ingest_nmap(
     project = await get_project_or_404(project_id, db)
     hosts_created = hosts_updated = services_created = services_updated = 0
 
+    affected_host_ids: set[str] = set()
+
     try:
         for host_info in hosts_data:
             ip = host_info.get("ip")
@@ -250,6 +253,7 @@ async def ingest_nmap(
                 hosts_updated += 1
 
             await db.flush()
+            affected_host_ids.add(host.id)
 
             if replace_services:
                 await db.execute(delete(Service).where(Service.host_id == host.id))
@@ -311,6 +315,25 @@ async def ingest_nmap(
                     services_updated += 1
 
         await db.commit()
+
+        # Best-effort knowledge graph sync — never let a graph-sync problem
+        # take down a successful ingest. Re-fetch with services eager-loaded
+        # since ORM relationship state after commit isn't reliable to reuse.
+        try:
+            if affected_host_ids:
+                synced_hosts = (
+                    await db.execute(
+                        select(Host)
+                        .where(Host.id.in_(affected_host_ids))
+                        .options(selectinload(Host.services))
+                    )
+                ).scalars().all()
+                for h in synced_hosts:
+                    await sync_host_with_services(db, project.id, h)
+                await db.commit()
+        except Exception:
+            logger.exception("Knowledge graph sync failed after Nmap ingest (non-fatal)")
+            await db.rollback()
 
         msg = (
             f"Ingested into project '{project.name}': "

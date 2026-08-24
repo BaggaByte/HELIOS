@@ -28,6 +28,8 @@ __all__ = [
     "Evidence",
     "Note",
     "LogEvent",
+    "Task",
+    "Event",
     "KnowledgeNode",
     "KnowledgeEdge",
 ]

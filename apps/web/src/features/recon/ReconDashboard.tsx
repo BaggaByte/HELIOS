@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
-import { Target, Search, Server, Shield, ShieldAlert, ShieldCheck, Activity, Terminal } from 'lucide-react';
+import { Target, Search, Server, ShieldAlert, Activity, Terminal } from 'lucide-react';
 import { useReconStore } from '../../stores/reconStore';
 import { cn } from '../../lib/utils';
-import type { ReconService } from '../../services/reconService';
+
 
 export function ReconDashboard() {
   const [scanTarget, setScanTarget] = useState('');
