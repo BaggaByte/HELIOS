@@ -33,8 +33,10 @@ param(
 
 $ErrorActionPreference = "Stop"
 
-$OutputDir = (Resolve-Path -LiteralPath $OutputDir -ErrorAction SilentlyContinue)?.Path
-if (-not $OutputDir) {
+$resolved = Resolve-Path -LiteralPath $OutputDir -ErrorAction SilentlyContinue
+if ($resolved) {
+    $OutputDir = $resolved.Path
+} else {
     $OutputDir = "$PSScriptRoot\..\models\phi-4-mini-openvino"
 }
 
@@ -110,7 +112,7 @@ from pathlib import Path
 try:
     import openvino_genai as ov_genai
 except ImportError:
-    print("WARN: openvino_genai not installed — skipping runtime verification.")
+    print("WARN: openvino_genai not installed - skipping runtime verification.")
     print("      Install with:  uv add openvino-genai")
     sys.exit(0)
 

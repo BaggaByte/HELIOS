@@ -2,13 +2,16 @@ import logging
 from typing import List, Dict, Any, Callable
 from helios.core.logs.parsers.apache import parse_apache_log_line
 from helios.core.logs.parsers.suricata import parse_suricata_fast_log
+from helios.core.logs.parsers.nginx import parse_nginx_log_line
+from helios.core.logs.parsers.linux_auth import parse_auth_log_line
 
 logger = logging.getLogger(__name__)
 
 PARSER_MAP = {
     "apache": parse_apache_log_line,
-    "nginx": parse_apache_log_line,  # Shares combined log format usually
-    "suricata": parse_suricata_fast_log
+    "nginx": parse_nginx_log_line,
+    "suricata": parse_suricata_fast_log,
+    "linux_auth": parse_auth_log_line,
 }
 
 def parse_log_file(content: str, log_type: str) -> List[Dict[str, Any]]:

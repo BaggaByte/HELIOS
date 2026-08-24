@@ -8,9 +8,19 @@ from helios.infrastructure.database import get_db_session
 from helios.models.project import Project
 from helios.models.finding import Finding
 from helios.core.web_security.parsers.zap import parse_zap_xml
+from helios.core.web_security.jwt_analyzer import analyze_jwt
+from helios.core.web_security.http_analyzer import analyze_http_response
+from pydantic import BaseModel
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
+
+class JWTAnalyzeRequest(BaseModel):
+    token: str
+
+class HTTPAnalyzeRequest(BaseModel):
+    headers: dict
+    url: str = ""
 
 
 async def get_project_or_404(project_id: str, db: AsyncSession) -> Project:
@@ -88,6 +98,74 @@ async def ingest_zap(
         logger.error(f"Failed to ingest ZAP data: {e}")
         await db.rollback()
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/analyze/jwt", summary="Analyze a JWT for security issues")
+async def analyze_jwt_endpoint(
+    project_id: str = Path(...),
+    request: JWTAnalyzeRequest = ...,
+    db: AsyncSession = Depends(get_db_session),
+):
+    project = await get_project_or_404(project_id, db)
+    findings = analyze_jwt(request.token)
+    
+    new_findings = []
+    for f_data in findings:
+        res = await db.execute(
+            select(Finding).where(
+                Finding.project_id == project.id,
+                Finding.title == f_data["title"],
+            )
+        )
+        if not res.scalars().first():
+            finding = Finding(
+                project_id=project.id,
+                title=f_data["title"],
+                description=f_data["description"],
+                severity=f_data["severity"],
+                confidence=f_data["confidence"],
+                status="observed",
+                cwe_id=f_data.get("cwe_id"),
+            )
+            db.add(finding)
+            new_findings.append(f_data)
+            
+    await db.commit()
+    return {"status": "success", "findings": findings, "new_findings_count": len(new_findings)}
+
+
+@router.post("/analyze/http", summary="Analyze HTTP headers for security issues")
+async def analyze_http_endpoint(
+    project_id: str = Path(...),
+    request: HTTPAnalyzeRequest = ...,
+    db: AsyncSession = Depends(get_db_session),
+):
+    project = await get_project_or_404(project_id, db)
+    findings = analyze_http_response(request.headers, request.url)
+    
+    new_findings = []
+    for f_data in findings:
+        res = await db.execute(
+            select(Finding).where(
+                Finding.project_id == project.id,
+                Finding.title == f_data["title"],
+            )
+        )
+        if not res.scalars().first():
+            finding = Finding(
+                project_id=project.id,
+                title=f_data["title"],
+                description=f_data["description"],
+                severity=f_data["severity"],
+                confidence=f_data["confidence"],
+                status="observed",
+                cwe_id=f_data.get("cwe_id"),
+            )
+            db.add(finding)
+            new_findings.append(f_data)
+            
+    await db.commit()
+    return {"status": "success", "findings": findings, "new_findings_count": len(new_findings)}
 
 
 @router.get("/findings", summary="List all web security findings for a project")

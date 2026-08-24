@@ -60,7 +60,7 @@ export function MessageBubble({ message }: MessageBubbleProps) {
         {displayContent ? (
           <ReactMarkdown
             components={{
-              code({ node, className, children, ...props }: any) {
+              code({ className, children, ...props }: any) {
                 const match = /language-(\w+)/.exec(className || '')
                 const isInline = props.inline ?? (!match && !String(children).includes('\n'));
                 const codeString = String(children).replace(/\n$/, '')
@@ -88,8 +88,8 @@ export function MessageBubble({ message }: MessageBubbleProps) {
                   </code>
                 )
               },
-              p: ({ node, ...props }) => <p className="mb-4 last:mb-0 leading-relaxed text-gray-300" {...props} />,
-              a: ({ node, ...props }) => <a className="text-border-active hover:text-white hover:underline transition-colors shadow-border-active/20 drop-shadow-sm" target="_blank" rel="noopener noreferrer" {...props} />,
+              p: ({ ...props }) => <p className="mb-4 last:mb-0 leading-relaxed text-gray-300" {...props} />,
+              a: ({ ...props }) => <a className="text-border-active hover:text-white hover:underline transition-colors shadow-border-active/20 drop-shadow-sm" target="_blank" rel="noopener noreferrer" {...props} />,
             }}
           >
             {message.content}

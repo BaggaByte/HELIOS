@@ -1,18 +1,115 @@
-import { useState, useEffect } from 'react';
-import { Target, Search, Server, ShieldAlert, Activity, Terminal } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import {
+  Target,
+  Search,
+  Server,
+  ShieldAlert,
+  Activity,
+  Terminal,
+  Upload,
+  Filter,
+  ChevronRight,
+  X,
+  Sparkles,
+  AlertTriangle
+} from 'lucide-react';
 import { useReconStore } from '../../stores/reconStore';
+import type { ReconHost, ReconService } from '../../services/reconService';
 import { cn } from '../../lib/utils';
+import { useNavigate } from 'react-router-dom';
 
+const DEFAULT_RECON_HOSTS: ReconHost[] = [
+  {
+    id: 'demo-h1',
+    ip: '192.168.1.15',
+    hostname: 'api.internal.helios.corp',
+    os: 'Linux (Ubuntu 22.04.3 LTS / Kernel 5.15.0-88-generic)',
+    status: 'up',
+    last_seen: '2026-08-24T00:00:00.000Z',
+    services: [
+      { port: 22, protocol: 'tcp', state: 'open', name: 'ssh', version: 'OpenSSH 8.9p1 Ubuntu 3ubuntu0.4' },
+      { port: 80, protocol: 'tcp', state: 'open', name: 'http', version: 'Apache httpd 2.4.49 (Vulnerable to CVE-2021-41773)' },
+      { port: 443, protocol: 'tcp', state: 'open', name: 'ssl/https', version: 'OpenSSL 3.0.2 / Apache 2.4.49' },
+      { port: 8080, protocol: 'tcp', state: 'open', name: 'http-proxy', version: 'Node.js Express / v18.17.1' }
+    ],
+    _enriched: {
+      risk: {
+        risk_score: 9.4,
+        severity: 'Critical'
+      },
+      attack_surface: {
+        exposed_high_value_ports: [22, 443],
+        potential_web_services: [80, 443, 8080],
+        outdated_services: ['Apache 2.4.49']
+      }
+    }
+  },
+  {
+    id: 'demo-h2',
+    ip: '192.168.1.10',
+    hostname: 'auth.helios.corp',
+    os: 'Linux (Debian 12 Bookworm)',
+    status: 'up',
+    last_seen: '2026-08-23T23:42:00.000Z',
+    services: [
+      { port: 22, protocol: 'tcp', state: 'open', name: 'ssh', version: 'OpenSSH 9.2p1 Debian 2+deb12u1' },
+      { port: 5432, protocol: 'tcp', state: 'open', name: 'postgresql', version: 'PostgreSQL DB 16.1' },
+      { port: 6379, protocol: 'tcp', state: 'open', name: 'redis', version: 'Redis server v=7.2.3 (No Auth Required)' }
+    ],
+    _enriched: {
+      risk: {
+        risk_score: 8.8,
+        severity: 'High'
+      },
+      attack_surface: {
+        exposed_high_value_ports: [22, 5432, 6379],
+        potential_web_services: [],
+        outdated_services: []
+      }
+    }
+  },
+  {
+    id: 'demo-h3',
+    ip: '192.168.1.50',
+    hostname: 'k8s-control.helios.cloud',
+    os: 'Linux (Flatcar Container Linux 3510.2.1)',
+    status: 'up',
+    last_seen: '2026-08-23T23:15:00.000Z',
+    services: [
+      { port: 6443, protocol: 'tcp', state: 'open', name: 'kube-apiserver', version: 'Kubernetes v1.28.2 REST API' },
+      { port: 2379, protocol: 'tcp', state: 'open', name: 'etcd', version: 'etcd 3.5.9-0' },
+      { port: 10250, protocol: 'tcp', state: 'open', name: 'kubelet', version: 'Kubernetes Kubelet API' }
+    ],
+    _enriched: {
+      risk: {
+        risk_score: 7.5,
+        severity: 'High'
+      },
+      attack_surface: {
+        exposed_high_value_ports: [6443, 2379],
+        potential_web_services: [],
+        outdated_services: []
+      }
+    }
+  }
+];
 
 export function ReconDashboard() {
+  const navigate = useNavigate();
   const [scanTarget, setScanTarget] = useState('');
   const [selectedTool, setSelectedTool] = useState('nmap');
+  const [portFilter, setPortFilter] = useState<'all' | 'web' | 'database' | 'remote' | 'high-risk'>('all');
+  const [selectedHost, setSelectedHost] = useState<ReconHost | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   const { hosts, isLoading, isScanning, error, fetchHosts, triggerScan } = useReconStore();
 
   useEffect(() => {
-    // In a real app, this would be the active project ID
     fetchHosts('default-project-id');
   }, [fetchHosts]);
+
+  // Fallback demo hosts if backend is empty
+  const displayHosts: ReconHost[] = hosts.length > 0 ? hosts : DEFAULT_RECON_HOSTS;
 
   const handleScanSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -22,227 +119,357 @@ export function ReconDashboard() {
     }
   };
 
-  const getPortSeverityColor = (port: number, serviceName: string = '') => {
-    const criticalPorts = [21, 22, 23, 3389, 445, 139, 1433, 3306, 5432, 2375];
-    const webPorts = [80, 443, 8080, 8443];
-
-    if (criticalPorts.includes(port)) return 'bg-severity-critical/20 text-severity-critical border-severity-critical/50 shadow-[0_0_10px_rgb(var(--severity-critical)/0.2)]';
-    if (webPorts.includes(port) || serviceName.includes('http')) return 'bg-severity-info/20 text-severity-info border-severity-info/50 shadow-[0_0_10px_rgb(var(--severity-info)/0.2)]';
-    return 'bg-surface-tertiary text-gray-300 border-border-default';
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files?.[0]) {
+      triggerScan('nmap', e.target.files[0].name);
+    }
   };
 
+  const getPortSeverityColor = (port: number, serviceName: string = '') => {
+    const criticalPorts = [21, 22, 23, 3389, 445, 139, 1433, 3306, 5432, 6379, 2379, 6443];
+    const webPorts = [80, 443, 8080, 8443];
+
+    if (criticalPorts.includes(port)) {
+      return 'bg-severity-critical/15 text-severity-critical border-severity-critical/40';
+    }
+    if (webPorts.includes(port) || serviceName.toLowerCase().includes('http')) {
+      return 'bg-severity-info/15 text-severity-info border-severity-info/40';
+    }
+    return 'bg-surface-primary text-gray-300 border-border-default';
+  };
+
+  const filteredHosts = displayHosts.filter(host => {
+    if (portFilter === 'all') return true;
+    if (portFilter === 'web') {
+      return host.services.some((s: ReconService) => [80, 443, 8080, 8443].includes(s.port) || (s.name && s.name.includes('http')));
+    }
+    if (portFilter === 'database') {
+      return host.services.some((s: ReconService) => [3306, 5432, 6379, 27017, 1433].includes(s.port));
+    }
+    if (portFilter === 'remote') {
+      return host.services.some((s: ReconService) => [22, 23, 3389, 5900].includes(s.port));
+    }
+    if (portFilter === 'high-risk') {
+      return host._enriched?.risk.severity === 'Critical' || host._enriched?.risk.severity === 'High';
+    }
+    return true;
+  });
+
   return (
-    <div className="flex flex-col h-full p-8 overflow-y-auto relative bg-transparent">
+    <div className="flex flex-col h-full bg-surface-primary overflow-hidden">
       
-      {/* Dashboard Header */}
-      <div className="flex items-center justify-between mb-8 z-10">
+      {/* Header */}
+      <div className="p-4 border-b border-border-default bg-surface-secondary flex flex-col sm:flex-row sm:items-center justify-between gap-3 flex-shrink-0">
         <div>
-          <h1 className="text-3xl font-bold text-gray-100 neon-text flex items-center gap-3">
-            <Target className="text-border-active" size={32} />
-            Attack Surface
+          <h1 className="text-xl font-bold text-gray-100 flex items-center gap-2.5">
+            <Target className="text-border-active" size={22} />
+            Attack Surface & Reconnaissance Matrix
           </h1>
-          <p className="text-gray-400 mt-2">Manage and analyze discovered infrastructure.</p>
+          <p className="text-xs text-gray-400 mt-0.5">Multi-tool port discovery, OS fingerprinting, service banner analysis, and CVE correlation.</p>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <input
+            type="file"
+            ref={fileInputRef}
+            className="hidden"
+            accept=".xml,.json,.gnmap,.txt"
+            onChange={handleFileUpload}
+          />
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            className="px-3 py-1.5 rounded-lg bg-surface-tertiary hover:bg-surface-hover border border-border-default text-xs font-semibold text-gray-200 transition-colors flex items-center gap-1.5"
+          >
+            <Upload size={14} className="text-border-active" />
+            <span>Import Nmap/Masscan</span>
+          </button>
         </div>
       </div>
 
-      {/* Control Bar (Scan Input) */}
-      <div className="glass-panel p-4 rounded-2xl mb-8 z-10 border border-border-default/50 flex flex-col md:flex-row gap-4 items-center justify-between shadow-xl">
-        <form onSubmit={handleScanSubmit} className="flex-1 w-full max-w-3xl relative flex gap-3">
+      {/* Control Bar: Multi-Tool Scanner */}
+      <div className="p-4 border-b border-border-default bg-surface-secondary/40 flex flex-col lg:flex-row gap-3 items-center justify-between flex-shrink-0">
+        <form onSubmit={handleScanSubmit} className="flex-1 w-full flex flex-col sm:flex-row gap-2 max-w-4xl">
           <select 
             value={selectedTool} 
             onChange={e => setSelectedTool(e.target.value)}
             disabled={isScanning}
-            className="bg-surface-primary/50 border border-border-default/50 rounded-xl px-4 py-3 text-gray-200 focus:outline-none focus:border-border-active transition-all shadow-inner w-48"
+            className="bg-surface-tertiary border border-border-default rounded-xl px-3 py-2 text-xs font-mono font-bold text-gray-200 focus:outline-none focus:border-border-active sm:w-44 shrink-0"
           >
-            <optgroup label="Port Scanners">
-              <option value="nmap">Nmap</option>
-              <option value="masscan">Masscan</option>
-              <option value="rustscan">Rustscan</option>
-              <option value="naabu">Naabu</option>
+            <optgroup label="Port & Network Scanners">
+              <option value="nmap">Nmap (SYN Stealth)</option>
+              <option value="masscan">Masscan (High Speed)</option>
+              <option value="rustscan">Rustscan (Adaptive)</option>
+              <option value="naabu">Naabu (Fast SYN)</option>
             </optgroup>
-            <optgroup label="Subdomain Enumeration">
-              <option value="amass">Amass</option>
-              <option value="subfinder">Subfinder</option>
-              <option value="dnsx">Dnsx</option>
+            <optgroup label="Subdomains & OSINT">
+              <option value="subfinder">Subfinder OSINT</option>
+              <option value="amass">Amass Active/Passive</option>
+              <option value="dnsx">Dnsx Resolver</option>
             </optgroup>
-            <optgroup label="Web/Tech Probing">
-              <option value="httpx">Httpx</option>
-              <option value="whatweb">Whatweb</option>
-              <option value="nikto">Nikto</option>
-            </optgroup>
-            <optgroup label="Fuzzers">
-              <option value="ffuf">Ffuf</option>
-              <option value="gobuster">Gobuster</option>
-              <option value="dirsearch">Dirsearch</option>
-            </optgroup>
-            <optgroup label="Crawlers">
-              <option value="katana">Katana</option>
-              <option value="gau">Gau</option>
-            </optgroup>
-            <optgroup label="DAST">
-              <option value="nuclei">Nuclei</option>
+            <optgroup label="Web & Technology">
+              <option value="httpx">Httpx Probe</option>
+              <option value="katana">Katana Crawler</option>
+              <option value="ffuf">FFuF Directory Fuzzer</option>
+              <option value="nuclei">Nuclei Vulnerability Scan</option>
             </optgroup>
           </select>
+
           <div className="relative flex-1">
-            <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-              <Terminal size={18} className="text-border-active" />
-            </div>
+            <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
             <input
               type="text"
               value={scanTarget}
               onChange={(e) => setScanTarget(e.target.value)}
-              placeholder={selectedTool === 'nmap' ? "Target IP or CIDR (e.g. 192.168.1.0/24)..." : "Target URL (e.g. https://example.com)..."}
-              className="w-full bg-surface-primary/50 border border-border-default/50 rounded-xl py-3 pl-12 pr-32 text-gray-200 placeholder-gray-500 focus:outline-none focus:border-border-active focus:ring-1 focus:ring-border-active/50 transition-all shadow-inner"
+              placeholder="Target CIDR, IP or Domain (e.g., 192.168.1.0/24 or api.helios.corp)..."
+              className="w-full bg-surface-tertiary border border-border-default rounded-xl py-2 pl-10 pr-32 text-xs text-gray-200 placeholder-gray-500 focus:outline-none focus:border-border-active"
               disabled={isScanning}
             />
-          <button
-            type="submit"
-            disabled={!scanTarget.trim() || isScanning}
-            className="absolute right-2 top-2 bottom-2 px-4 rounded-lg bg-border-active text-bg-primary font-medium flex items-center gap-2 hover:bg-opacity-90 disabled:opacity-50 disabled:bg-surface-tertiary transition-all"
-          >
-            {isScanning ? (
-              <><Activity size={16} className="animate-spin" /> Scanning...</>
-            ) : (
-              <><Search size={16} /> Execute Scan</>
-            )}
+            <button
+              type="submit"
+              disabled={!scanTarget.trim() || isScanning}
+              className="absolute right-1.5 top-1.5 bottom-1.5 px-3 rounded-lg bg-border-active text-white font-semibold text-xs flex items-center gap-1.5 hover:bg-opacity-90 disabled:opacity-50 transition-all"
+            >
+              {isScanning ? <Activity size={14} className="animate-spin" /> : <Terminal size={14} />}
+              <span>{isScanning ? 'Probing...' : 'Execute Scan'}</span>
             </button>
           </div>
         </form>
-        
-        <div className="flex items-center gap-4 text-sm">
-          <div className="flex items-center gap-2">
-            <span className="w-3 h-3 rounded-full bg-severity-critical shadow-[0_0_8px_rgb(var(--severity-critical))] animate-pulse"></span>
-            <span className="text-gray-300">High Risk</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="w-3 h-3 rounded-full bg-severity-info shadow-[0_0_8px_rgb(var(--severity-info))]"></span>
-            <span className="text-gray-300">Web Service</span>
-          </div>
+
+        {/* Port Category Filter Chips */}
+        <div className="flex items-center gap-1.5 self-start lg:self-auto overflow-x-auto text-xs">
+          <Filter size={14} className="text-gray-400 mr-1 shrink-0" />
+          {[
+            { id: 'all', label: 'All Hosts' },
+            { id: 'web', label: 'Web (80/443)' },
+            { id: 'database', label: 'Databases' },
+            { id: 'remote', label: 'Remote Access' },
+            { id: 'high-risk', label: 'High Risk' }
+          ].map(chip => (
+            <button
+              key={chip.id}
+              onClick={() => setPortFilter(chip.id as any)}
+              className={cn(
+                "px-2.5 py-1 rounded-lg transition-colors font-medium shrink-0",
+                portFilter === chip.id 
+                  ? "bg-border-active text-white shadow-xs font-semibold" 
+                  : "bg-surface-tertiary text-gray-400 hover:text-gray-200 border border-border-default"
+              )}
+            >
+              {chip.label}
+            </button>
+          ))}
         </div>
       </div>
 
       {error && (
-        <div className="mb-6 p-4 rounded-lg bg-severity-critical/10 border border-severity-critical text-severity-critical">
-          Error: {error}
+        <div className="mx-4 mt-4 p-3 rounded-xl bg-severity-critical/10 border border-severity-critical/40 text-xs text-severity-critical flex items-center gap-2">
+          <AlertTriangle size={16} className="shrink-0" />
+          <span>Error: {error}</span>
         </div>
       )}
 
-      {/* Hosts Grid */}
-      {isLoading ? (
-        <div className="flex items-center justify-center flex-1">
-          <Activity size={48} className="text-border-active animate-spin" />
-        </div>
-      ) : hosts.length === 0 ? (
-        <div className="flex flex-col items-center justify-center flex-1 text-gray-500 glass-panel rounded-2xl mx-auto p-12 max-w-lg mt-12 text-center">
-          <Server size={64} className="mb-4 opacity-50" />
-          <h3 className="text-xl font-medium text-gray-300 mb-2">No Hosts Discovered</h3>
-          <p>Execute a scan above to populate the attack surface.</p>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6 z-10 pb-12">
-          {hosts.map(host => (
-            <div key={host.id} className="glass-panel p-6 rounded-2xl border border-border-default/50 hover:border-border-active/50 transition-all duration-300 group hover:-translate-y-1 hover:shadow-[0_10px_30px_rgb(var(--border-active)/0.1)]">
-              
-              <div className="flex items-start justify-between mb-6">
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 rounded-xl bg-surface-tertiary/50 border border-border-default flex items-center justify-center shadow-inner relative overflow-hidden">
-                     {/* Ambient glow behind server icon */}
-                    <div className="absolute inset-0 bg-border-active opacity-10 blur-md"></div>
-                    <Server size={24} className="text-gray-300 relative z-10" />
+      {/* Main Grid: Discovered Infrastructure */}
+      <div className="flex-1 overflow-y-auto p-4 custom-scrollbar">
+        {isLoading ? (
+          <div className="flex items-center justify-center h-64 text-border-active">
+            <Activity size={36} className="animate-spin" />
+          </div>
+        ) : filteredHosts.length === 0 ? (
+          <div className="flex flex-col items-center justify-center h-64 text-gray-500 space-y-2">
+            <Server size={48} className="opacity-40" />
+            <p className="text-sm">No hosts matching the selected filter.</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+            {filteredHosts.map(host => (
+              <div
+                key={host.id}
+                onClick={() => setSelectedHost(host)}
+                className="p-4 rounded-2xl bg-surface-secondary border border-border-default hover:border-border-active/60 transition-all cursor-pointer group hover:shadow-lg flex flex-col justify-between"
+              >
+                <div>
+                  {/* Host IP & Status Pill */}
+                  <div className="flex items-start justify-between mb-3">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-xl bg-surface-tertiary border border-border-default flex items-center justify-center text-border-active shrink-0">
+                        <Server size={20} />
+                      </div>
+                      <div className="min-w-0">
+                        <h3 className="font-mono font-bold text-base text-gray-100 truncate">{host.ip}</h3>
+                        {host.hostname && (
+                          <p className="text-xs text-border-active font-mono truncate">{host.hostname}</p>
+                        )}
+                      </div>
+                    </div>
+
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 flex items-center gap-1 shrink-0">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                      UP
+                    </span>
                   </div>
-                  <div>
-                    <h3 className="text-lg font-bold text-gray-100">{host.ip}</h3>
-                    {host.hostname && <p className="text-sm text-border-active font-mono">{host.hostname}</p>}
+
+                  {/* OS & Risk Badge */}
+                  {host._enriched && (
+                    <div className="mb-3 flex items-center justify-between bg-surface-tertiary/70 p-2 rounded-xl border border-border-default text-xs">
+                      <span className="text-gray-400 font-medium">Risk Score</span>
+                      <span className={cn(
+                        "px-2 py-0.5 rounded text-[11px] font-bold border",
+                        host._enriched.risk.severity === 'Critical' ? 'bg-severity-critical/20 text-severity-critical border-severity-critical/40' :
+                        host._enriched.risk.severity === 'High' ? 'bg-severity-high/20 text-severity-high border-severity-high/40' :
+                        'bg-severity-info/20 text-severity-info border-severity-info/40'
+                      )}>
+                        {host._enriched.risk.risk_score} / 10 ({host._enriched.risk.severity})
+                      </span>
+                    </div>
+                  )}
+
+                  {host.os && (
+                    <p className="text-xs text-gray-400 font-mono mb-3 line-clamp-1">
+                      {host.os}
+                    </p>
+                  )}
+
+                  {/* Port Matrix Tags */}
+                  <div className="space-y-1.5 mb-3">
+                    <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block">
+                      Exposed Services ({host.services.length})
+                    </span>
+                    <div className="flex flex-wrap gap-1.5">
+                      {host.services.map((svc: ReconService, sIdx: number) => (
+                        <span
+                          key={sIdx}
+                          className={cn(
+                            "px-2 py-0.5 rounded text-xs font-mono font-semibold border",
+                            getPortSeverityColor(svc.port, svc.name)
+                          )}
+                        >
+                          {svc.port}/{svc.name || svc.protocol}
+                        </span>
+                      ))}
+                    </div>
                   </div>
                 </div>
-                <div className={cn(
-                  "px-2.5 py-1 rounded-full text-xs font-medium border flex items-center gap-1.5 shadow-sm",
-                  host.status === 'up' ? "bg-severity-low/20 text-severity-low border-severity-low/50" : "bg-gray-500/20 text-gray-400 border-gray-500/50"
-                )}>
-                  <div className={cn("w-1.5 h-1.5 rounded-full", host.status === 'up' ? "bg-severity-low" : "bg-gray-500")} />
-                  {host.status.toUpperCase()}
+
+                {/* Footer Action */}
+                <div className="pt-3 border-t border-border-default/60 flex items-center justify-between text-xs text-gray-400">
+                  <span className="font-mono text-[10px]">Seen {new Date(host.last_seen).toLocaleTimeString()}</span>
+                  <div className="text-border-active group-hover:underline flex items-center gap-1 font-semibold">
+                    <span>Inspect Target</span>
+                    <ChevronRight size={14} className="group-hover:translate-x-0.5 transition-transform" />
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Target Deep Dive Modal / Drawer */}
+      {selectedHost && (
+        <div 
+          className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4"
+          onClick={() => setSelectedHost(null)}
+        >
+          <div 
+            className="w-full max-w-2xl bg-surface-secondary border border-border-default rounded-2xl shadow-2xl p-6 overflow-hidden flex flex-col max-h-[85vh] space-y-5 animate-in zoom-in-95 duration-150"
+            onClick={e => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div className="flex items-start justify-between pb-4 border-b border-border-default">
+              <div className="flex items-center gap-3">
+                <div className="p-3 rounded-xl bg-surface-tertiary border border-border-default text-border-active">
+                  <Server size={24} />
+                </div>
+                <div>
+                  <h2 className="text-lg font-bold text-gray-100 font-mono">{selectedHost.ip}</h2>
+                  <p className="text-xs text-border-active font-mono">{selectedHost.hostname || 'No FQDN resolved'}</p>
                 </div>
               </div>
 
-              {host._enriched && (
-                <div className="mb-4 flex items-center justify-between bg-surface-primary/30 p-2.5 rounded-lg border border-border-default/30">
-                  <div className="flex items-center gap-2">
-                    <ShieldAlert size={16} className={cn(
-                      host._enriched.risk.severity === 'Critical' ? 'text-severity-critical' :
-                      host._enriched.risk.severity === 'High' ? 'text-severity-high' :
-                      host._enriched.risk.severity === 'Medium' ? 'text-severity-medium' :
-                      'text-severity-low'
-                    )} />
-                    <span className="text-sm font-medium text-gray-300">Risk Score:</span>
+              <button 
+                onClick={() => setSelectedHost(null)}
+                className="p-1 rounded-lg hover:bg-surface-hover text-gray-400 hover:text-gray-200"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="flex-1 overflow-y-auto custom-scrollbar space-y-4 text-xs pr-1">
+              {/* OS & Fingerprint */}
+              <div>
+                <span className="font-bold text-gray-400 uppercase tracking-wider block mb-1">Operating System & Kernel</span>
+                <p className="p-2.5 rounded-xl bg-surface-primary border border-border-default font-mono text-gray-200">
+                  {selectedHost.os || 'Linux 5.x Kernel Generic Fingerprint'}
+                </p>
+              </div>
+
+              {/* Service Details Table */}
+              <div>
+                <span className="font-bold text-gray-400 uppercase tracking-wider block mb-1.5">Discovered Services & Banners</span>
+                <div className="space-y-2">
+                  {selectedHost.services.map((svc: ReconService, sIdx: number) => (
+                    <div 
+                      key={sIdx}
+                      className="p-3 rounded-xl bg-surface-primary border border-border-default flex flex-col gap-1"
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className={cn("px-2 py-0.5 rounded text-xs font-mono font-bold border", getPortSeverityColor(svc.port, svc.name))}>
+                          PORT {svc.port} / {svc.protocol.toUpperCase()} ({svc.name})
+                        </span>
+                        <span className="font-mono text-emerald-400 font-bold uppercase">{svc.state}</span>
+                      </div>
+                      <p className="font-mono text-gray-300 text-[11px] mt-1 break-all">
+                        {svc.version || 'Version banner withheld'}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Attack Surface Summary */}
+              {selectedHost._enriched?.attack_surface && (
+                <div className="p-3.5 rounded-xl bg-severity-critical/10 border border-severity-critical/30 space-y-1.5">
+                  <div className="flex items-center gap-1.5 text-severity-critical font-bold">
+                    <ShieldAlert size={14} />
+                    <span>Attack Surface Exposure</span>
                   </div>
-                  <div className={cn(
-                    "px-2 py-0.5 rounded text-xs font-bold",
-                    host._enriched.risk.severity === 'Critical' ? 'bg-severity-critical/20 text-severity-critical border border-severity-critical/50' :
-                    host._enriched.risk.severity === 'High' ? 'bg-severity-high/20 text-severity-high border border-severity-high/50' :
-                    host._enriched.risk.severity === 'Medium' ? 'bg-severity-medium/20 text-severity-medium border border-severity-medium/50' :
-                    'bg-severity-low/20 text-severity-low border border-severity-low/50'
-                  )}>
-                    {host._enriched.risk.risk_score} ({host._enriched.risk.severity})
+                  <div className="text-gray-300 space-y-1">
+                    <div>Exposed High Value Ports: <span className="font-mono font-bold text-gray-100">{selectedHost._enriched.attack_surface.exposed_high_value_ports.join(', ') || 'None'}</span></div>
+                    <div>Outdated Software Banners: <span className="font-mono font-bold text-gray-100">{selectedHost._enriched.attack_surface.outdated_services.join(', ') || 'None detected'}</span></div>
                   </div>
                 </div>
               )}
-
-              <div className="space-y-4">
-                {host.os && (
-                  <div className="flex items-center gap-2 text-sm text-gray-400 bg-surface-primary/30 p-2.5 rounded-lg border border-border-default/30">
-                    <Terminal size={14} />
-                    <span className="font-mono">{host.os}</span>
-                  </div>
-                )}
-
-                <div>
-                  <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Open Ports ({host.services.length})</h4>
-                  <div className="flex flex-wrap gap-2">
-                    {host.services.map((service, idx) => (
-                      <div 
-                        key={idx}
-                        className={cn(
-                          "px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors cursor-default",
-                          getPortSeverityColor(service.port, service.name)
-                        )}
-                        title={`${service.name || 'unknown'} ${service.version ? `(${service.version})` : ''}`}
-                      >
-                        <span className="font-bold mr-1">{service.port}</span>
-                        <span className="opacity-80">/ {service.name || service.protocol}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {host._enriched && (
-                  <div className="space-y-2 mt-4">
-                    {host._enriched.attack_surface.exposed_high_value_ports.length > 0 && (
-                      <div className="text-xs flex items-start gap-2 text-severity-critical bg-severity-critical/10 p-2 rounded border border-severity-critical/20">
-                        <ShieldAlert size={14} className="mt-0.5 flex-shrink-0" />
-                        <span>Exposed high-value ports: {host._enriched.attack_surface.exposed_high_value_ports.join(', ')}</span>
-                      </div>
-                    )}
-                    {host._enriched.attack_surface.outdated_services.length > 0 && (
-                      <div className="text-xs flex items-start gap-2 text-severity-high bg-severity-high/10 p-2 rounded border border-severity-high/20">
-                        <Activity size={14} className="mt-0.5 flex-shrink-0" />
-                        <span>Outdated services detected: {host._enriched.attack_surface.outdated_services.join(', ')}</span>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-              
-              <div className="mt-6 pt-4 border-t border-border-default/30 flex justify-between items-center text-xs text-gray-500">
-                <span>Last seen: {new Date(host.last_seen).toLocaleString()}</span>
-                <button className="text-border-active hover:text-white transition-colors">
-                  View Details &rarr;
-                </button>
-              </div>
-
             </div>
-          ))}
+
+            {/* Modal Actions */}
+            <div className="pt-4 border-t border-border-default flex items-center justify-between gap-3">
+              <button
+                onClick={() => {
+                  setSelectedHost(null);
+                  navigate('/web');
+                }}
+                className="px-4 py-2 rounded-xl bg-surface-tertiary hover:bg-surface-hover border border-border-default text-xs font-semibold text-gray-200 transition-colors"
+              >
+                Send to HTTP Repeater
+              </button>
+
+              <button
+                onClick={() => {
+                  const prompt = `Perform an offensive vulnerability analysis and exploit vector discovery for host ${selectedHost.ip} (${selectedHost.hostname || ''}) running services: ${selectedHost.services.map((s: ReconService) => `${s.port}/${s.name} ${s.version || ''}`).join(', ')}`;
+                  setSelectedHost(null);
+                  navigate('/chat', { state: { initialPrompt: prompt } });
+                }}
+                className="px-4 py-2 rounded-xl bg-border-active text-white text-xs font-bold hover:bg-opacity-90 transition-all flex items-center gap-1.5 shadow-sm"
+              >
+                <Sparkles size={14} />
+                <span>Exploit Assessment with Copilot</span>
+              </button>
+            </div>
+          </div>
         </div>
       )}
+
     </div>
   );
 }

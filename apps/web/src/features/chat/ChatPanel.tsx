@@ -8,7 +8,7 @@ import { cn } from '../../lib/utils';
 
 export function ChatPanel() {
   const location = useLocation();
-  const [input, setInput] = useState('');
+  const [input, setInput] = useState(() => location.state?.initialPrompt || '');
   const { messages, isConnected, sendUserMessage } = useChat();
   const { uploadFile, isUploading } = useFileUpload();
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -16,11 +16,9 @@ export function ChatPanel() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isDragging, setIsDragging] = useState(false);
 
-  // Check for initial prompt from navigation (e.g. from Web Security Dashboard)
+  // Clear navigation state so it doesn't persist on page refresh
   useEffect(() => {
     if (location.state?.initialPrompt) {
-      setInput(location.state.initialPrompt);
-      // Clear the state so it doesn't persist on refresh
       window.history.replaceState({}, document.title);
     }
   }, [location]);
@@ -38,13 +36,13 @@ export function ChatPanel() {
     }
   }, [input]);
 
-  const handleFileUpload = async (file: File) => {
+  const handleFileUpload = useCallback(async (file: File) => {
     const result = await uploadFile(file);
     if (result) {
       // Send a system message indicating file upload
       sendUserMessage(`[System: Uploaded file "${file.name}" to context]`);
     }
-  };
+  }, [uploadFile, sendUserMessage]);
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -64,7 +62,7 @@ export function ChatPanel() {
       const file = e.dataTransfer.files[0];
       await handleFileUpload(file);
     }
-  }, [uploadFile]);
+  }, [handleFileUpload]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();

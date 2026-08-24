@@ -23,6 +23,7 @@ export function EvidenceCard({ evidence }: Props) {
         expected: result.expected_hash
       });
     } catch (err) {
+      console.warn('Evidence verification failed:', err);
       setVerificationResult({ valid: false });
     } finally {
       setIsVerifying(false);

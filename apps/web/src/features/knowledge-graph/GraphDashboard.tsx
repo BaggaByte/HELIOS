@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useEffect } from 'react';
 import ReactFlow, { 
   Controls, 
   Background, 
@@ -37,7 +37,7 @@ export function GraphDashboard() {
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
   
   // Sync state when data loads
-  useMemo(() => {
+  useEffect(() => {
     if (graphData) {
       setNodes(graphData.nodes);
       setEdges(graphData.edges.map(edge => ({

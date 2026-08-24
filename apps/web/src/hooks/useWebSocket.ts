@@ -18,6 +18,7 @@ export function useWebSocket<T = any>(url: string, options: UseWebSocketOptions 
 
   // Set is faster than Array for adding/removing handlers
   const messageHandlers = useRef<Set<(data: T) => void>>(new Set());
+  const connectRef = useRef<() => void>(() => {});
 
   const connect = useCallback(() => {
     if (!isMounted.current) return;
@@ -53,7 +54,7 @@ export function useWebSocket<T = any>(url: string, options: UseWebSocketOptions 
         console.log(`[WS] Reconnecting in ${delay}ms...`);
         reconnectTimeout.current = setTimeout(() => {
           reconnectAttempts.current += 1;
-          connect();
+          connectRef.current();
         }, delay);
       }
     };
@@ -65,6 +66,10 @@ export function useWebSocket<T = any>(url: string, options: UseWebSocketOptions 
       socket.close(); // Trigger onclose to start reconnect logic
     };
   }, [url, reconnectInterval, maxRetries]);
+
+  useEffect(() => {
+    connectRef.current = connect;
+  }, [connect]);
 
   useEffect(() => {
     isMounted.current = true;
