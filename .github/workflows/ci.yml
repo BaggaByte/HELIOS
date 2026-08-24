@@ -1,0 +1,115 @@
+name: CI
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+
+jobs:
+  # ── Backend: lint + type-check + tests ───────────────────────
+  backend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: services
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          version: "latest"
+
+      - name: Set up Python
+        run: uv python install 3.13
+
+      - name: Install dependencies
+        run: uv sync
+
+      - name: Create .env for CI
+        run: |
+          cp .env.example .env
+          # Override required fields for CI
+          echo "SECRET_KEY=$(python -c 'import secrets; print(secrets.token_hex(32))')" >> .env
+          echo "DEBUG=True" >> .env
+          echo "DATABASE_URL=sqlite+aiosqlite:///./test_helios.db" >> .env
+
+      - name: Lint with Ruff
+        run: uv run ruff check helios/
+
+      - name: Format check with Ruff
+        run: uv run ruff format --check helios/
+
+      - name: Type check with mypy
+        run: uv run mypy helios/ --ignore-missing-imports --no-strict-optional
+        continue-on-error: true   # mypy warnings don't block CI yet
+
+      - name: Run tests
+        run: uv run pytest tests/ -v --tb=short
+
+  # ── Frontend: type-check + build ─────────────────────────────
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/web
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: apps/web/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Type check
+        run: npx tsc --noEmit
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Run frontend tests
+        run: npm run test --if-present
+
+      - name: Build
+        run: npm run build
+
+  # ── Desktop: Rust fmt + clippy ────────────────────────────────
+  desktop:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/desktop
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libgtk-3-dev libwebkit2gtk-4.1-dev \
+            libappindicator3-dev librsvg2-dev patchelf
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Rust cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: apps/desktop
+
+      - name: Format check
+        run: cargo fmt -- --check
+
+      - name: Clippy
+        run: cargo clippy -- -D warnings
