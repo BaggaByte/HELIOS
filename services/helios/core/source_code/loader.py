@@ -2,11 +2,18 @@ import logging
 import os
 from typing import Dict, Any, Callable
 
-# Import the analyzers we have
 from helios.core.source_code.analyzers.python_analyzer import analyze_python_source
 from helios.core.source_code.analyzers.js_analyzer import analyze_js_source
 from helios.core.source_code.analyzers.php_analyzer import analyze_php_source
-
+from helios.core.source_code.analyzers.c_analyzer import analyze_c_source
+from helios.core.source_code.analyzers.cpp_analyzer import analyze_cpp_source
+from helios.core.source_code.analyzers.go_analyzer import analyze_go_source
+from helios.core.source_code.analyzers.ruby_analyzer import analyze_ruby_source
+from helios.core.source_code.analyzers.java_analyzer import analyze_java_source
+from helios.core.source_code.analyzers.csharp_analyzer import analyze_csharp_source
+from helios.core.source_code.analyzers.rust_analyzer import analyze_rust_source
+from helios.core.source_code.analyzers.ts_analyzer import analyze_ts_source
+from helios.core.source_code.analyzers.node_analyzer import analyze_node_source
 logger = logging.getLogger(__name__)
 
 class SourceCodeLoader:
@@ -19,9 +26,17 @@ class SourceCodeLoader:
             '.py': analyze_python_source,
             '.js': analyze_js_source,
             '.php': analyze_php_source,
-            # '.ts': analyze_ts_source,
-            # '.go': analyze_go_source,
-            # ... others mapped here as they are built
+            '.c': analyze_c_source,
+            '.cpp': analyze_cpp_source,
+            '.cc': analyze_cpp_source,
+            '.go': analyze_go_source,
+            '.rb': analyze_ruby_source,
+            '.java': analyze_java_source,
+            '.cs': analyze_csharp_source,
+            '.rs': analyze_rust_source,
+            '.ts': analyze_ts_source,
+            '.mjs': analyze_node_source,
+            '.cjs': analyze_node_source
         }
 
     def analyze_file(self, file_path: str) -> Dict[str, Any]:
@@ -63,7 +78,9 @@ class SourceCodeLoader:
             # Try to map common names to extensions
             lang_to_ext = {
                 'python': '.py', 'javascript': '.js', 'typescript': '.ts', 
-                'go': '.go', 'rust': '.rs', 'java': '.java'
+                'go': '.go', 'rust': '.rs', 'java': '.java', 'c': '.c',
+                'c++': '.cpp', 'cpp': '.cpp', 'c#': '.cs', 'csharp': '.cs',
+                'ruby': '.rb', 'php': '.php', 'node': '.js', 'nodejs': '.js'
             }
             ext = lang_to_ext.get(ext, f".{ext}")
 
