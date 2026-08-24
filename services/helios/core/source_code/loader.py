@@ -4,6 +4,8 @@ from typing import Dict, Any, Callable
 
 # Import the analyzers we have
 from helios.core.source_code.analyzers.python_analyzer import analyze_python_source
+from helios.core.source_code.analyzers.js_analyzer import analyze_js_source
+from helios.core.source_code.analyzers.php_analyzer import analyze_php_source
 
 logger = logging.getLogger(__name__)
 
@@ -15,7 +17,8 @@ class SourceCodeLoader:
     def __init__(self):
         self.extension_map: Dict[str, Callable] = {
             '.py': analyze_python_source,
-            # '.js': analyze_js_source,
+            '.js': analyze_js_source,
+            '.php': analyze_php_source,
             # '.ts': analyze_ts_source,
             # '.go': analyze_go_source,
             # ... others mapped here as they are built
