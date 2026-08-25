@@ -1,12 +1,13 @@
 import logging
 from typing import Dict, Any
 from helios.plugins.base import BasePlugin
+from helios.core.recon.parsers.nuclei import parse_nuclei
 
 logger = logging.getLogger(__name__)
 
 class NucleiPlugin(BasePlugin):
     """
-    Nuclei wrapper plugin to simulate running DAST scans from the Web Security Dashboard.
+    Nuclei wrapper plugin to execute real DAST scans.
     """
 
     @property
@@ -26,12 +27,26 @@ class NucleiPlugin(BasePlugin):
         if not target:
             raise ValueError("Target URL is required for Nuclei scan.")
             
-        logger.info(f"Executing mock Nuclei scan on target: {target}")
+        args = payload.get("args", "-t cves/")
         
-        # Simulating a successful scan trigger
+        # Build command: Use -jsonl for easy parsing
+        command = ["nuclei", "-u", target, "-jsonl"] + args.split()
+        
+        logger.info(f"Executing real Nuclei scan on target: {target}")
+        
+        result = self.run_command(command, timeout=600)
+        
+        if "error" in result:
+            return result
+            
+        # Parse the JSONL output
+        parsed_data = parse_nuclei(result.get("stdout", ""))
+        
         return {
             "status": "success",
-            "message": f"Nuclei scan successfully triggered on {target}.",
-            "findings_count": 2, # Mock count to correspond to UI mock
-            "target": target
+            "message": f"Nuclei scan completed on {target}.",
+            "findings_count": len(parsed_data.get("findings", [])),
+            "target": target,
+            "parsed_data": parsed_data,
+            "raw_output": result.get("stdout", "")
         }

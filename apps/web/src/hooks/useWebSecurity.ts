@@ -1,4 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useProjectStore } from '../stores/projectStore';
+import { API_BASE_URL } from '../services/apiClient';
 
 export interface WebFinding {
   id: string;
@@ -16,24 +18,28 @@ export interface WebFinding {
 
 export function useWebSecurity() {
   const queryClient = useQueryClient();
+  const projectId = useProjectStore(state => state.projectId);
 
   const { data: findings, isLoading, error } = useQuery<WebFinding[]>({
-    queryKey: ['web_findings'],
+    queryKey: ['web_findings', projectId],
     queryFn: async () => {
-      const response = await fetch('http://localhost:8000/api/v1/web/findings');
+      if (!projectId) throw new Error('No project selected');
+      const response = await fetch(`${API_BASE_URL}/projects/${projectId}/web-security/findings`);
       if (!response.ok) {
         throw new Error('Failed to fetch findings');
       }
       return response.json();
     },
+    enabled: !!projectId,
   });
 
   const uploadZapMutation = useMutation({
     mutationFn: async (file: File) => {
+      if (!projectId) throw new Error('No project selected');
       const formData = new FormData();
       formData.append('file', file);
 
-      const response = await fetch('http://localhost:8000/api/v1/web/ingest/zap', {
+      const response = await fetch(`${API_BASE_URL}/projects/${projectId}/web-security/ingest/zap`, {
         method: 'POST',
         body: formData,
       });

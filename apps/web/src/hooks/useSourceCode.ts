@@ -1,5 +1,7 @@
 import { useMutation } from '@tanstack/react-query';
 import { useState } from 'react';
+import { useProjectStore } from '../stores/projectStore';
+import { API_BASE_URL } from '../services/apiClient';
 
 export interface CodeVulnerability {
   title: string;
@@ -18,13 +20,15 @@ export interface AnalysisResult {
 
 export function useSourceCode() {
   const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null);
+  const projectId = useProjectStore(state => state.projectId);
 
   const analyzeCodeMutation = useMutation({
     mutationFn: async (file: File) => {
+      if (!projectId) throw new Error('No project selected');
       const formData = new FormData();
       formData.append('file', file);
 
-      const response = await fetch('http://localhost:8000/api/v1/source-code/analyze', {
+      const response = await fetch(`${API_BASE_URL}/projects/${projectId}/source-code/analyze`, {
         method: 'POST',
         body: formData,
       });

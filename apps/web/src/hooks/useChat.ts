@@ -1,6 +1,7 @@
 import { useCallback, useEffect } from 'react';
 import { useWebSocket } from './useWebSocket';
 import { useChatStore } from '../stores/chatStore';
+import { API_BASE_URL } from '../services/apiClient';
 
 export interface ChatMessage {
   id: string;
@@ -18,7 +19,9 @@ export interface StreamEvent {
   error?: string;
 }
 
-export function useChat(wsUrl: string = 'ws://localhost:8000/api/v1/chat/stream') {
+const DEFAULT_WS_URL = API_BASE_URL.replace(/^http/, 'ws') + '/chat/stream';
+
+export function useChat(wsUrl: string = DEFAULT_WS_URL) {
   const { 
     messages, 
     activeAssistantMsgId,

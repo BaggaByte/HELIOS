@@ -15,6 +15,9 @@ import { ThemeProvider } from './components/providers/ThemeProvider';
 import { MainDashboard } from './features/dashboard/MainDashboard';
 import { SettingsDashboard } from './features/settings/SettingsDashboard';
 
+import { useEffect } from 'react';
+import { useProjectStore } from './stores/projectStore';
+
 // Professional 404 Component
 const NotFound = () => (
   <div className="flex flex-col items-center justify-center h-full text-center p-6">
@@ -32,7 +35,34 @@ const NotFound = () => (
   </div>
 );
 
+// Loading component
+const AppLoader = () => (
+  <div className="flex flex-col items-center justify-center h-screen bg-surface-primary text-gray-200">
+    <div className="w-12 h-12 border-4 border-border-active border-t-transparent rounded-full animate-spin mb-4" />
+    <h2 className="text-xl font-medium">Initializing Project...</h2>
+  </div>
+);
+
 function App() {
+  const { initialize, isInitializing, error } = useProjectStore();
+
+  useEffect(() => {
+    initialize();
+  }, [initialize]);
+
+  if (isInitializing) {
+    return <AppLoader />;
+  }
+
+  if (error) {
+    return (
+      <div className="flex flex-col items-center justify-center h-screen bg-surface-primary text-gray-200 p-6 text-center">
+        <h1 className="text-3xl text-red-500 mb-4">Initialization Error</h1>
+        <p className="text-gray-400 max-w-md">{error}</p>
+      </div>
+    );
+  }
+
   return (
     // ThemeProvider wraps the app and handles applying 'dark'/'light' to <html>
     <ThemeProvider>

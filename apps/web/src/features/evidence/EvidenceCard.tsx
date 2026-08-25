@@ -3,6 +3,8 @@ import { Download, ShieldCheck, ShieldAlert, FileText } from 'lucide-react';
 import type { Evidence } from '../../hooks/useEvidence';
 import { useEvidence } from '../../hooks/useEvidence';
 import { cn } from '../../lib/utils';
+import { useProjectStore } from '../../stores/projectStore';
+import { API_BASE_URL } from '../../services/apiClient';
 
 interface Props {
   evidence: Evidence;
@@ -31,7 +33,8 @@ export function EvidenceCard({ evidence }: Props) {
   };
 
   const isImage = evidence.original_filename?.match(/\.(jpg|jpeg|png|gif|webp)$/i);
-  const downloadUrl = `http://localhost:8000/api/v1/evidence/${evidence.id}/download`;
+  const projectId = useProjectStore(state => state.projectId);
+  const downloadUrl = `${API_BASE_URL}/projects/${projectId}/evidence/${evidence.id}/download`;
 
   return (
     <div className="bg-surface-secondary border border-border-default rounded-xl overflow-hidden shadow-sm flex flex-col group transition-all hover:border-border-active">

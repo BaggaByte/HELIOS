@@ -1,12 +1,13 @@
 import logging
 from typing import Dict, Any
 from helios.plugins.base import BasePlugin
+from helios.core.recon.parsers.subfinder import parse_subfinder
 
 logger = logging.getLogger(__name__)
 
 class SubfinderPlugin(BasePlugin):
     """
-    Subfinder wrapper plugin to simulate running Subdomain Enumeration scans.
+    Subfinder wrapper plugin to execute real Subdomain Enumeration.
     """
 
     @property
@@ -26,11 +27,26 @@ class SubfinderPlugin(BasePlugin):
         if not target:
             raise ValueError("Target is required for Subfinder scan.")
             
-        logger.info(f"Executing mock Subfinder scan on target: {target}")
+        args = payload.get("args", "")
+        
+        # Build command: Use -json for easy parsing
+        command = ["subfinder", "-d", target, "-json", "-silent"] + args.split()
+        
+        logger.info(f"Executing real Subfinder scan on target: {target}")
+        
+        result = self.run_command(command, timeout=300)
+        
+        if "error" in result:
+            return result
+            
+        # Parse the JSONL output
+        parsed_data = parse_subfinder(result.get("stdout", ""))
         
         return {
             "status": "success",
-            "message": f"Subfinder scan successfully triggered on {target}.",
-            "findings_count": 0,
-            "target": target
+            "message": f"Subfinder scan completed on {target}.",
+            "findings_count": len(parsed_data.get("subdomains", [])),
+            "target": target,
+            "parsed_data": parsed_data,
+            "raw_output": result.get("stdout", "")
         }

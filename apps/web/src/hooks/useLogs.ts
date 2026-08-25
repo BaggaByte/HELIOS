@@ -1,5 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
+import { useProjectStore } from '../stores/projectStore';
+import { API_BASE_URL } from '../services/apiClient';
 
 export interface LogEvent {
   id: string;
@@ -21,13 +23,15 @@ export interface TimelineResponse {
 
 export function useLogs() {
   const queryClient = useQueryClient();
+  const projectId = useProjectStore(state => state.projectId);
   const [page, setPage] = useState(1);
   const [severityFilter, setSeverityFilter] = useState<string | null>(null);
   const [sourceFilter, setSourceFilter] = useState<string | null>(null);
 
   const { data, isLoading, error } = useQuery<TimelineResponse>({
-    queryKey: ['log_timeline', page, severityFilter, sourceFilter],
+    queryKey: ['log_timeline', projectId, page, severityFilter, sourceFilter],
     queryFn: async () => {
+      if (!projectId) throw new Error('No project selected');
       const params = new URLSearchParams({
         page: page.toString(),
         limit: '100', // Load 100 at a time for the feed
@@ -35,21 +39,23 @@ export function useLogs() {
       if (severityFilter) params.append('severity', severityFilter);
       if (sourceFilter) params.append('source', sourceFilter);
 
-      const response = await fetch(`http://localhost:8000/api/v1/logs/timeline?${params.toString()}`);
+      const response = await fetch(`${API_BASE_URL}/projects/${projectId}/logs/timeline?${params.toString()}`);
       if (!response.ok) {
         throw new Error('Failed to fetch timeline');
       }
       return response.json();
     },
+    enabled: !!projectId,
   });
 
   const ingestLogsMutation = useMutation({
     mutationFn: async ({ file, type }: { file: File, type: string }) => {
+      if (!projectId) throw new Error('No project selected');
       const formData = new FormData();
       formData.append('file', file);
       formData.append('log_type', type);
 
-      const response = await fetch('http://localhost:8000/api/v1/logs/ingest', {
+      const response = await fetch(`${API_BASE_URL}/projects/${projectId}/logs/ingest`, {
         method: 'POST',
         body: formData,
       });

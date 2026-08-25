@@ -70,7 +70,7 @@ export function WebSecurityDashboard() {
   const handleScanSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (scanTarget.trim() && !isScanning) {
-      triggerScan(scanTarget.trim());
+      triggerScan('default-project-id', scanTarget.trim());
       setScanTarget('');
     }
   };

@@ -29,3 +29,25 @@ class BasePlugin(ABC):
         Accepts a dictionary payload and returns a dictionary of results.
         """
         pass
+
+    def run_command(self, command: list[str], capture_output: bool = True, text: bool = True, timeout: int = 300) -> Dict[str, Any]:
+        import subprocess
+        import logging
+        
+        logger = logging.getLogger(__name__)
+        logger.info(f"Plugin {self.name} executing command: {' '.join(command)}")
+        
+        try:
+            result = subprocess.run(command, capture_output=capture_output, text=text, timeout=timeout, check=False)
+            if result.returncode != 0 and not result.stdout:
+                logger.error(f"Execution failed: {result.stderr}")
+                return {"error": f"Execution failed: {result.stderr}"}
+            
+            return {"stdout": result.stdout, "stderr": result.stderr, "returncode": result.returncode}
+            
+        except FileNotFoundError:
+            return {"error": f"Executable '{command[0]}' not found on system PATH."}
+        except subprocess.TimeoutExpired:
+            return {"error": f"Command timed out after {timeout} seconds."}
+        except Exception as e:
+            return {"error": str(e)}

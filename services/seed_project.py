@@ -1,7 +1,9 @@
 import asyncio
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import sessionmaker
-from helios.infrastructure.database import DATABASE_URL
+from helios.config import get_settings
+settings = get_settings()
+DATABASE_URL = settings.DATABASE_URL
 from helios.models.project import Project
 from sqlalchemy import select
 

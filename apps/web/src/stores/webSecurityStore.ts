@@ -9,9 +9,8 @@ interface WebSecurityState {
   error: string | null;
   lastScanTarget: string | null;
   
-  // Actions
   fetchFindings: (projectId: string) => Promise<void>;
-  triggerScan: (targetUrl: string) => Promise<void>;
+  triggerScan: (projectId: string, targetUrl: string) => Promise<void>;
   selectFinding: (id: string | null) => void;
 }
 
@@ -33,10 +32,10 @@ export const useWebSecurityStore = create<WebSecurityState>((set, get) => ({
     }
   },
 
-  triggerScan: async (targetUrl: string) => {
+  triggerScan: async (projectId: string, targetUrl: string) => {
     set({ isScanning: true, error: null, lastScanTarget: targetUrl });
     try {
-      await webSecurityService.triggerScan(targetUrl);
+      await webSecurityService.triggerScan(projectId, targetUrl);
       set({ isScanning: false });
     } catch (error: any) {
       set({ error: error.message, isScanning: false });

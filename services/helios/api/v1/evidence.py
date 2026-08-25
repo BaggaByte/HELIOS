@@ -5,16 +5,24 @@ from sqlalchemy import select
 import uuid
 import logging
 import os
+import asyncio
 
 from helios.infrastructure.database import get_db_session
 from helios.core.evidence.manager import save_evidence_file
 from helios.core.evidence.validator import verify_evidence
+from helios.core.evidence.chain_of_custody import ChainOfCustody
 from helios.models.evidence import Evidence
 from helios.models.finding import Finding
 from helios.models.project import Project
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
+
+# One ledger, alongside the evidence files themselves (see
+# core/evidence/manager.py's EVIDENCE_DIR convention). ChainOfCustody does
+# blocking file I/O, so every call below runs through asyncio.to_thread to
+# avoid stalling the event loop.
+_custody = ChainOfCustody(ledger_path=".helios_storage/evidence_ledger.jsonl")
 
 
 async def get_project_or_404(project_id: str, db: AsyncSession) -> Project:
@@ -44,6 +52,17 @@ async def get_or_create_stub_finding(project_id: uuid.UUID, db: AsyncSession) ->
     return finding.id
 
 
+@router.get("/custody/verify-ledger", summary="Verify the integrity of the evidence chain-of-custody ledger")
+async def verify_custody_ledger():
+    """
+    Checks the hash chain of the append-only custody ledger (upload / verify /
+    delete actions across all evidence). True means no entry has been altered
+    or removed since it was written.
+    """
+    is_valid = await asyncio.to_thread(_custody.verify_ledger)
+    return {"status": "success", "data": {"ledger_intact": is_valid}}
+
+
 @router.post("/upload", summary="Upload an evidence file")
 async def upload_evidence(
     project_id: str = Path(...),
@@ -67,7 +86,7 @@ async def upload_evidence(
         else:
             fid = await get_or_create_stub_finding(project_id, db)
 
-        saved_info = await save_evidence_file(file)
+        saved_info = await asyncio.to_thread(save_evidence_file, file)
 
         evidence = Evidence(
             finding_id=fid,
@@ -80,6 +99,17 @@ async def upload_evidence(
         db.add(evidence)
         await db.commit()
         await db.refresh(evidence)
+
+        await asyncio.to_thread(
+            _custody.log_evidence,
+            str(evidence.id),
+            "UPLOAD",
+            {
+                "finding_id": str(fid),
+                "file_hash": evidence.file_hash,
+                "original_filename": saved_info["original_filename"],
+            },
+        )
 
         return {
             "status": "success",
@@ -174,6 +204,14 @@ async def verify_evidence_integrity(
         raise HTTPException(status_code=400, detail="Evidence has no file attached")
 
     verification = verify_evidence(evidence.file_path, evidence.file_hash)
+
+    await asyncio.to_thread(
+        _custody.log_evidence,
+        str(evidence.id),
+        "VERIFY",
+        {"result": verification.get("status", verification.get("valid"))},
+    )
+
     return {"status": "success", "data": verification}
 
 
@@ -198,6 +236,15 @@ async def delete_evidence(
         except OSError as e:
             logger.warning(f"Could not delete evidence file: {e}")
 
+    finding_id = evidence.finding_id  # capture before the row is gone / object expires
     await db.delete(evidence)
     await db.commit()
+
+    await asyncio.to_thread(
+        _custody.log_evidence,
+        str(evidence_id),
+        "DELETE",
+        {"finding_id": str(finding_id)},
+    )
+
     return None

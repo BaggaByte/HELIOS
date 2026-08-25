@@ -1,6 +1,10 @@
 import { useState, useCallback } from 'react';
+import { useProjectStore } from '../stores/projectStore';
+import { API_BASE_URL } from '../services/apiClient';
 
-export function useFileUpload(url: string = 'http://localhost:8000/api/v1/files/upload') {
+export function useFileUpload(customUrl?: string) {
+  const projectId = useProjectStore(state => state.projectId);
+  const url = customUrl || (projectId ? `${API_BASE_URL}/projects/${projectId}/files/upload` : '');
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [uploadError, setUploadError] = useState<string | null>(null);

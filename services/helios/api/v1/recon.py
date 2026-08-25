@@ -456,8 +456,100 @@ def execute_recon_plugin(
     if not plugin:
         raise HTTPException(status_code=404, detail=f"Plugin '{plugin_name}' not found")
 
+    async def run_and_persist():
+        try:
+            # We must create a new session for the background task
+            from helios.infrastructure.database import async_session_maker
+            from helios.models.finding import Finding
+            from helios.models.host import Host
+            from sqlalchemy.future import select
+            
+            result = plugin.execute(request.payload)
+            if "error" in result:
+                logger.error(f"Plugin {plugin_name} error: {result['error']}")
+                return
+
+            parsed_data = result.get("parsed_data", {})
+            
+            async with async_session_maker() as db:
+                if "findings" in parsed_data:
+                    for f_data in parsed_data["findings"]:
+                        finding = Finding(
+                            project_id=project_id,
+                            title=f_data.get("title", "Unknown"),
+                            description=f_data.get("description", ""),
+                            severity=f_data.get("severity", "INFO"),
+                            confidence=f_data.get("confidence", "HIGH"),
+                            cwe_id=f_data.get("cwe_id"),
+                            cvss_score=f_data.get("cvss_score"),
+                            cvss_vector=f_data.get("cvss_metrics"),
+                            remediation=f_data.get("remediation"),
+                            references_json=f_data.get("references", [])
+                        )
+                        db.add(finding)
+                
+                if "subdomains" in parsed_data:
+                    for s_data in parsed_data["subdomains"]:
+                        host_name = s_data.get("host")
+                        if host_name:
+                            # Create or update host
+                            h_res = await db.execute(select(Host).where(Host.project_id == project_id, Host.hostname == host_name))
+                            host = h_res.scalars().first()
+                            if not host:
+                                host = Host(project_id=project_id, ip=s_data.get("ip") or "", hostname=host_name, hostnames=[host_name])
+                                db.add(host)
+                
+                if "directories" in parsed_data:
+                    for d_data in parsed_data["directories"]:
+                        finding = Finding(
+                            project_id=project_id,
+                            title=f"Endpoint Discovered: {d_data.get('path')}",
+                            description=f"Status: {d_data.get('status', 'unknown')}",
+                            severity="INFO",
+                            confidence="HIGH"
+                        )
+                        db.add(finding)
+                        
+                if "hosts" in parsed_data:
+                    from helios.models.service import Service
+                    for h_data in parsed_data["hosts"]:
+                        ip = h_data.get("ip")
+                        if not ip:
+                            continue
+                        # Create or update host
+                        h_res = await db.execute(select(Host).where(Host.project_id == project_id, Host.ip == ip))
+                        host = h_res.scalars().first()
+                        if not host:
+                            host = Host(project_id=project_id, ip=ip)
+                            db.add(host)
+                            await db.flush() # Need host.id
+                            
+                        for p_data in h_data.get("ports", []):
+                            port = p_data.get("port")
+                            protocol = p_data.get("protocol", "tcp")
+                            s_res = await db.execute(select(Service).where(Service.host_id == host.id, Service.port == port, Service.protocol == protocol))
+                            service = s_res.scalars().first()
+                            if not service:
+                                service = Service(
+                                    host_id=host.id,
+                                    port=port,
+                                    protocol=protocol,
+                                    state=p_data.get("state", "open"),
+                                    service=p_data.get("service"),
+                                    product=p_data.get("product"),
+                                    banner=p_data.get("banner"),
+                                    extrainfo=p_data.get("extrainfo")
+                                )
+                                db.add(service)
+                        
+                await db.commit()
+                logger.info(f"Plugin {plugin_name} completed and persisted data.")
+                
+        except Exception as e:
+            logger.error(f"Background task for {plugin_name} failed: {e}")
+
     try:
-        background_tasks.add_task(plugin.execute, request.payload)
+        background_tasks.add_task(run_and_persist)
         return {
             "plugin": plugin_name,
             "version": plugin.version,

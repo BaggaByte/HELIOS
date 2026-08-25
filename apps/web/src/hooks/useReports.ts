@@ -1,5 +1,7 @@
 import { useMutation } from '@tanstack/react-query';
 import { useState } from 'react';
+import { useProjectStore } from '../stores/projectStore';
+import { API_BASE_URL } from '../services/apiClient';
 
 const FALLBACK_REPORT = `# HELIOS Security Assessment & Penetration Testing Report
 
@@ -87,18 +89,22 @@ All supporting logs, PCAP traces, and memory artifacts have been signed with SHA
 
 export function useReports() {
   const [reportMarkdown, setReportMarkdown] = useState<string | null>(null);
+  const currentProjectId = useProjectStore(state => state.projectId);
 
   const generateMutation = useMutation({
     mutationFn: async ({ includeAiSummary, projectId }: { includeAiSummary: boolean, projectId?: string }) => {
+      const activeProject = projectId || currentProjectId;
+      if (!activeProject) throw new Error('No project selected');
+
       try {
-        const response = await fetch('http://localhost:8000/api/v1/reports/generate', {
+        const response = await fetch(`${API_BASE_URL}/projects/${activeProject}/reports/generate`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
             include_ai_summary: includeAiSummary,
-            project_id: projectId
+            project_id: activeProject
           }),
         });
 

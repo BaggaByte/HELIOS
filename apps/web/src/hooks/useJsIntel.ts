@@ -1,5 +1,7 @@
 import { useMutation } from '@tanstack/react-query';
 import { useState } from 'react';
+import { useProjectStore } from '../stores/projectStore';
+import { API_BASE_URL } from '../services/apiClient';
 
 export interface JsAnalysisResult {
   status: string;
@@ -15,10 +17,12 @@ export interface JsAnalysisResult {
 
 export function useJsIntel() {
   const [analysisResult, setAnalysisResult] = useState<JsAnalysisResult | null>(null);
+  const projectId = useProjectStore(state => state.projectId);
 
   const analyzeCodeMutation = useMutation({
     mutationFn: async (code: string) => {
-      const response = await fetch('http://localhost:8000/api/v1/js-intel/analyze', {
+      if (!projectId) throw new Error('No project selected');
+      const response = await fetch(`${API_BASE_URL}/projects/${projectId}/js-intel/analyze`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ code }),
@@ -36,7 +40,8 @@ export function useJsIntel() {
       const formData = new FormData();
       formData.append('file', file);
       
-      const response = await fetch('http://localhost:8000/api/v1/js-intel/analyze-file', {
+      if (!projectId) throw new Error('No project selected');
+      const response = await fetch(`${API_BASE_URL}/projects/${projectId}/js-intel/analyze-file`, {
         method: 'POST',
         body: formData,
       });

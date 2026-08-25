@@ -1,12 +1,13 @@
 import logging
 from typing import Dict, Any
 from helios.plugins.base import BasePlugin
+from helios.core.recon.parsers.katana import parse_katana
 
 logger = logging.getLogger(__name__)
 
 class KatanaPlugin(BasePlugin):
     """
-    Katana wrapper plugin to simulate running Crawlers scans.
+    Katana wrapper plugin to execute real URL Crawling scans.
     """
 
     @property
@@ -26,11 +27,24 @@ class KatanaPlugin(BasePlugin):
         if not target:
             raise ValueError("Target is required for Katana scan.")
             
-        logger.info(f"Executing mock Katana scan on target: {target}")
+        args = payload.get("args", "")
+        
+        command = ["katana", "-u", target, "-jsonl"] + args.split()
+        
+        logger.info(f"Executing real Katana scan on target: {target}")
+        
+        result = self.run_command(command, timeout=600)
+        
+        if "error" in result:
+            return result
+            
+        parsed_data = parse_katana(result.get("stdout", ""))
         
         return {
             "status": "success",
-            "message": f"Katana scan successfully triggered on {target}.",
-            "findings_count": 0,
-            "target": target
+            "message": f"Katana scan completed on {target}.",
+            "findings_count": len(parsed_data.get("directories", [])),
+            "target": target,
+            "parsed_data": parsed_data,
+            "raw_output": result.get("stdout", "")
         }

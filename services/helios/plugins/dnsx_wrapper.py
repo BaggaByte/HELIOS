@@ -1,12 +1,13 @@
 import logging
 from typing import Dict, Any
 from helios.plugins.base import BasePlugin
+from helios.core.recon.parsers.dnsx import parse_dnsx
 
 logger = logging.getLogger(__name__)
 
 class DnsxPlugin(BasePlugin):
     """
-    Dnsx wrapper plugin to simulate running Subdomain Enumeration scans.
+    DNSx wrapper plugin to execute real DNS Resolution scans.
     """
 
     @property
@@ -19,18 +20,31 @@ class DnsxPlugin(BasePlugin):
         
     @property
     def description(self) -> str:
-        return "Executes Dnsx for Subdomain Enumeration."
+        return "Executes DNSx for DNS Resolution."
         
     def execute(self, payload: Dict[str, Any]) -> Dict[str, Any]:
         target = payload.get("target")
         if not target:
-            raise ValueError("Target is required for Dnsx scan.")
+            raise ValueError("Target is required for DNSx scan.")
             
-        logger.info(f"Executing mock Dnsx scan on target: {target}")
+        args = payload.get("args", "")
+        
+        command = ["dnsx", "-d", target, "-json", "-silent"] + args.split()
+        
+        logger.info(f"Executing real DNSx scan on target: {target}")
+        
+        result = self.run_command(command, timeout=300)
+        
+        if "error" in result:
+            return result
+            
+        parsed_data = parse_dnsx(result.get("stdout", ""))
         
         return {
             "status": "success",
-            "message": f"Dnsx scan successfully triggered on {target}.",
-            "findings_count": 0,
-            "target": target
+            "message": f"DNSx scan completed on {target}.",
+            "findings_count": len(parsed_data.get("subdomains", [])),
+            "target": target,
+            "parsed_data": parsed_data,
+            "raw_output": result.get("stdout", "")
         }

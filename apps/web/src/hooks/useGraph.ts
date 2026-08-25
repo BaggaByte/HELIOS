@@ -1,4 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
+import { useProjectStore } from '../stores/projectStore';
+import { API_BASE_URL } from '../services/apiClient';
 
 export interface GraphNode {
   id: string;
@@ -26,16 +28,20 @@ export interface GraphData {
 }
 
 export function useGraph() {
+  const projectId = useProjectStore(state => state.projectId);
+
   const { data, isLoading, error } = useQuery<GraphData>({
-    queryKey: ['knowledge_graph'],
+    queryKey: ['knowledge_graph', projectId],
     queryFn: async () => {
-      const response = await fetch('http://localhost:8000/api/v1/knowledge-graph');
+      if (!projectId) throw new Error('No project selected');
+      const response = await fetch(`${API_BASE_URL}/projects/${projectId}/graph`);
       if (!response.ok) {
         throw new Error('Failed to fetch knowledge graph');
       }
       const res = await response.json();
       return res.data;
     },
+    enabled: !!projectId,
   });
 
   return {

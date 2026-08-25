@@ -3,7 +3,7 @@
  */
 
 // In production, this should be an environment variable.
-const API_BASE_URL = 'http://localhost:8000/api/v1';
+export const API_BASE_URL = 'http://localhost:8000/api/v1';
 
 export class ApiError extends Error {
   public status: number;
