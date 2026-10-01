@@ -1,5 +1,6 @@
 import jsbeautifier
 
+
 def beautify_js(raw_js: str) -> str:
     """
     Takes minified or poorly formatted JS code and runs it through jsbeautifier

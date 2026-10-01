@@ -17,6 +17,7 @@ from helios.core.source_code.analyzers.secret_detector import scan_text
 
 # ── AWS Access Key ────────────────────────────────────────────────────────────
 
+
 def test_detects_aws_access_key():
     code = 'AWS_KEY = "AKIAIOSFODNN7EXAMPLE"\n'
     findings = scan_text(code, "config.py")
@@ -33,6 +34,7 @@ def test_no_false_positive_on_short_string():
 
 
 # ── Private Key ───────────────────────────────────────────────────────────────
+
 
 def test_detects_rsa_private_key():
     code = "-----BEGIN RSA PRIVATE KEY-----\nMIIE...\n-----END RSA PRIVATE KEY-----\n"
@@ -51,6 +53,7 @@ def test_detects_ec_private_key():
 
 # ── JWT ───────────────────────────────────────────────────────────────────────
 
+
 def test_detects_jwt_token():
     jwt = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c"
     code = f'const token = "{jwt}";\n'
@@ -62,10 +65,13 @@ def test_detects_jwt_token():
 
 # ── Generic API Key ───────────────────────────────────────────────────────────
 
+
 def test_detects_generic_api_key():
     code = "api_key = 'abcdef1234567890abcdef1234567890'\n"
     findings = scan_text(code, "settings.py")
-    generic = [f for f in findings if "API Key" in f["title"] or "Generic" in f["title"]]
+    generic = [
+        f for f in findings if "API Key" in f["title"] or "Generic" in f["title"]
+    ]
     assert len(generic) >= 1
 
 
@@ -73,11 +79,16 @@ def test_detects_secret_token():
     code = 'token = "supersecrettoken12345678"\n'
     findings = scan_text(code, "auth.py")
     # At least one finding should reference a token
-    assert any("token" in f["title"].lower() or "secret" in f["title"].lower() or "API" in f["title"]
-               for f in findings)
+    assert any(
+        "token" in f["title"].lower()
+        or "secret" in f["title"].lower()
+        or "API" in f["title"]
+        for f in findings
+    )
 
 
 # ── Line number accuracy ──────────────────────────────────────────────────────
+
 
 def test_line_number_accuracy():
     code = (
@@ -94,23 +105,29 @@ def test_line_number_accuracy():
 
 # ── Multiple findings ─────────────────────────────────────────────────────────
 
+
 def test_multiple_secrets_in_file():
-    code = (
-        'key = "AKIAIOSFODNN7EXAMPLE"\n'
-        "-----BEGIN RSA PRIVATE KEY-----\n"
-    )
+    code = 'key = "AKIAIOSFODNN7EXAMPLE"\n-----BEGIN RSA PRIVATE KEY-----\n'
     findings = scan_text(code, "secrets.py")
     assert len(findings) >= 2
 
 
 # ── Finding metadata ──────────────────────────────────────────────────────────
 
+
 def test_finding_has_required_fields():
     code = 'key = "AKIAIOSFODNN7EXAMPLE"\n'
     findings = scan_text(code, "config.py")
     assert len(findings) > 0
     f = findings[0]
-    for field in ("title", "description", "severity", "confidence", "cwe_id", "line_number"):
+    for field in (
+        "title",
+        "description",
+        "severity",
+        "confidence",
+        "cwe_id",
+        "line_number",
+    ):
         assert field in f, f"Missing field: {field}"
 
 
@@ -122,6 +139,7 @@ def test_cwe_is_798():
 
 
 # ── No false positives ────────────────────────────────────────────────────────
+
 
 def test_no_findings_in_clean_code():
     code = (

@@ -35,18 +35,29 @@ from sqlalchemy.orm import sessionmaker
 
 # Invalidate the lru_cache so it re-reads our patched env vars
 from helios.config import get_settings
+
 get_settings.cache_clear()
 
 from helios.main import app
 from helios.models.base import Base
 from helios.models import (  # noqa: F401 — register metadata
-    User, Project, Host, Service, Finding, Evidence,
-    Target, Note, KnowledgeNode, KnowledgeEdge, LogEvent,
+    User,
+    Project,
+    Host,
+    Service,
+    Finding,
+    Evidence,
+    Target,
+    Note,
+    KnowledgeNode,
+    KnowledgeEdge,
+    LogEvent,
 )
 from helios.infrastructure.database import get_db_session
 
 
 # ── Event loop ────────────────────────────────────────────────────────────────
+
 
 @pytest.fixture(scope="session")
 def event_loop():
@@ -56,6 +67,7 @@ def event_loop():
 
 
 # ── In-memory database engine ─────────────────────────────────────────────────
+
 
 @pytest_asyncio.fixture(scope="function")
 async def db_engine():
@@ -84,6 +96,7 @@ async def db_session(db_engine):
 
 # ── HTTP test client ──────────────────────────────────────────────────────────
 
+
 @pytest_asyncio.fixture(scope="function")
 async def client(db_session, test_user):
     """
@@ -105,13 +118,13 @@ async def client(db_session, test_user):
             return {"engine": "mock", "runtime_status": {"loaded": False}}
 
     app.state.chat_engine = _MockChatEngine()
-    
+
     token = create_access_token(data={"sub": test_user.username})
 
     async with AsyncClient(
-        transport=ASGITransport(app=app), 
+        transport=ASGITransport(app=app),
         base_url="http://test",
-        headers={"Authorization": f"Bearer {token}"}
+        headers={"Authorization": f"Bearer {token}"},
     ) as ac:
         yield ac
 
@@ -119,6 +132,7 @@ async def client(db_session, test_user):
 
 
 # ── Shared fixtures ───────────────────────────────────────────────────────────
+
 
 @pytest_asyncio.fixture
 async def test_user(db_session):
@@ -130,6 +144,7 @@ async def test_user(db_session):
     await db_session.commit()
     await db_session.refresh(u)
     return u
+
 
 @pytest_asyncio.fixture
 async def project(db_session, test_user):

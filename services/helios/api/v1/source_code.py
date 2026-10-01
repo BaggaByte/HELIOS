@@ -37,11 +37,13 @@ async def analyze_source_code(
     db: AsyncSession = Depends(get_db_session),
 ):
     project = await get_project_or_404(project_id, db)
-    
+
     # 10MB length limit for source code text
     MAX_CODE_LEN = 10 * 1024 * 1024
     if len(request.code) > MAX_CODE_LEN:
-        raise HTTPException(status_code=413, detail="Code payload too large. Maximum size is 10MB.")
+        raise HTTPException(
+            status_code=413, detail="Code payload too large. Maximum size is 10MB."
+        )
 
     try:
         findings_data = scan_text(request.code, request.filename)
@@ -74,12 +76,14 @@ async def analyze_source_code(
                 db.add(finding)
                 touched_findings.append(finding)
 
-            security_findings.append({
-                "type": "VULNERABILITY",
-                "severity": f_data["severity"].upper(),
-                "line": f_data.get("line_number"),
-                "description": f_data["title"],
-            })
+            security_findings.append(
+                {
+                    "type": "VULNERABILITY",
+                    "severity": f_data["severity"].upper(),
+                    "line": f_data.get("line_number"),
+                    "description": f_data["title"],
+                }
+            )
 
         await db.commit()
 
@@ -88,7 +92,9 @@ async def analyze_source_code(
                 await sync_finding(db, project.id, finding)
             await db.commit()
         except Exception:
-            logger.exception("Knowledge graph sync failed after source scan (non-fatal)")
+            logger.exception(
+                "Knowledge graph sync failed after source scan (non-fatal)"
+            )
             await db.rollback()
 
         return {
@@ -102,7 +108,9 @@ async def analyze_source_code(
     except Exception as e:
         logger.error(f"Failed to analyse source code: {e}")
         await db.rollback()
-        raise HTTPException(status_code=500, detail="Internal server error during source code analysis")
+        raise HTTPException(
+            status_code=500, detail="Internal server error during source code analysis"
+        )
 
 
 @router.get("/findings", summary="List all source-code findings for a project")
@@ -113,7 +121,9 @@ async def get_findings(
     await get_project_or_404(project_id, db)
 
     result = await db.execute(
-        select(Finding).where(Finding.project_id == project_id).order_by(Finding.created_at.desc())
+        select(Finding)
+        .where(Finding.project_id == project_id)
+        .order_by(Finding.created_at.desc())
     )
     findings = result.scalars().all()
 

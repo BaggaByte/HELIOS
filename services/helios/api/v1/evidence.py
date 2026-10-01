@@ -26,7 +26,9 @@ async def get_project_or_404(project_id: str, db: AsyncSession) -> Project:
     return project
 
 
-async def get_or_create_stub_finding(project_id: uuid.UUID, db: AsyncSession) -> uuid.UUID:
+async def get_or_create_stub_finding(
+    project_id: uuid.UUID, db: AsyncSession
+) -> uuid.UUID:
     """Return the first finding for this project, or create a stub if none exist."""
     result = await db.execute(
         select(Finding).where(Finding.project_id == project_id).limit(1)
@@ -61,10 +63,14 @@ async def upload_evidence(
         if finding_id:
             fid = uuid.UUID(finding_id)
             result = await db.execute(
-                select(Finding).where(Finding.id == fid, Finding.project_id == project_id)
+                select(Finding).where(
+                    Finding.id == fid, Finding.project_id == project_id
+                )
             )
             if not result.scalars().first():
-                raise HTTPException(status_code=404, detail="Finding not found in this project")
+                raise HTTPException(
+                    status_code=404, detail="Finding not found in this project"
+                )
         else:
             fid = await get_or_create_stub_finding(project_id, db)
 
@@ -85,6 +91,7 @@ async def upload_evidence(
         # Log to the chain of custody ledger
         try:
             from helios.core.evidence.chain_of_custody import ChainOfCustody
+
             coc = ChainOfCustody()
             coc.log_evidence(
                 evidence_id=str(evidence.id),
@@ -92,8 +99,8 @@ async def upload_evidence(
                 details={
                     "file_hash": evidence.file_hash,
                     "finding_id": str(fid),
-                    "original_filename": saved_info["original_filename"]
-                }
+                    "original_filename": saved_info["original_filename"],
+                },
             )
         except Exception as e:
             logger.error(f"Chain of custody logging failed for {evidence.id}: {e}")
@@ -101,7 +108,10 @@ async def upload_evidence(
             await db.commit()
             if os.path.exists(saved_info["file_path"]):
                 os.remove(saved_info["file_path"])
-            raise HTTPException(status_code=500, detail="Failed to secure evidence in chain of custody ledger")
+            raise HTTPException(
+                status_code=500,
+                detail="Failed to secure evidence in chain of custody ledger",
+            )
 
         return {
             "status": "success",
@@ -117,7 +127,9 @@ async def upload_evidence(
     except Exception as e:
         logger.error(f"Failed to upload evidence: {e}")
         await db.rollback()
-        raise HTTPException(status_code=500, detail="Internal server error during evidence upload")
+        raise HTTPException(
+            status_code=500, detail="Internal server error during evidence upload"
+        )
 
 
 @router.get("/", summary="List all evidence for a project")
@@ -145,7 +157,9 @@ async def list_evidence(
                 "type": e.type,
                 "description": e.description,
                 "file_hash": e.file_hash,
-                "original_filename": (e.metadata_json or {}).get("original_filename", ""),
+                "original_filename": (e.metadata_json or {}).get(
+                    "original_filename", ""
+                ),
                 "created_at": e.created_at,
             }
             for e in evidences
@@ -178,14 +192,16 @@ async def download_evidence(
         plaintext = enc_manager.decrypt_data(encrypted_data)
     except Exception as e:
         logger.error(f"Failed to decrypt evidence {evidence_id}: {e}")
-        raise HTTPException(status_code=500, detail="Failed to read or decrypt evidence file")
+        raise HTTPException(
+            status_code=500, detail="Failed to read or decrypt evidence file"
+        )
 
     filename = (evidence.metadata_json or {}).get("original_filename", "evidence.bin")
-    
+
     return Response(
         content=plaintext,
         media_type="application/octet-stream",
-        headers={"Content-Disposition": f'attachment; filename="{filename}"'}
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
 
 
@@ -208,24 +224,33 @@ async def verify_evidence_integrity(
         raise HTTPException(status_code=400, detail="Evidence has no file attached")
 
     verification = verify_evidence(evidence.file_path, evidence.file_hash)
-    
+
     # Also verify the ledger integrity
     try:
         from helios.core.evidence.chain_of_custody import ChainOfCustody
+
         coc = ChainOfCustody(create_if_missing=False)
         ledger_valid = coc.verify_ledger()
-        
+
         events = coc.get_evidence_events(evidence_id)
-        has_upload = any(e.get("action") == "UPLOAD" and e.get("details", {}).get("file_hash") == evidence.file_hash for e in events)
-        
+        has_upload = any(
+            e.get("action") == "UPLOAD"
+            and e.get("details", {}).get("file_hash") == evidence.file_hash
+            for e in events
+        )
+
         verification["ledger_valid"] = ledger_valid
-        
+
         if not ledger_valid:
             verification["valid"] = False
-            verification["error"] = "Chain of custody ledger verification failed (corrupted or missing)."
+            verification["error"] = (
+                "Chain of custody ledger verification failed (corrupted or missing)."
+            )
         elif not has_upload:
             verification["valid"] = False
-            verification["error"] = "Evidence was not found in the verified chain of custody ledger."
+            verification["error"] = (
+                "Evidence was not found in the verified chain of custody ledger."
+            )
     except Exception as e:
         logger.error(f"Ledger verification failed: {e}")
         verification["ledger_valid"] = False

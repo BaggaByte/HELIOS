@@ -12,6 +12,7 @@ from helios.core.js_intel.extractor import analyze_js
 
 # ── Endpoint finder ───────────────────────────────────────────────────────────
 
+
 class TestEndpointFinder:
     def test_finds_absolute_url(self):
         js = 'fetch("https://api.example.com/v1/users");'
@@ -50,6 +51,7 @@ class TestEndpointFinder:
 
 # ── Token extractor ───────────────────────────────────────────────────────────
 
+
 class TestTokenExtractor:
     def test_finds_aws_key(self):
         js = 'const key = "AKIAIOSFODNN7EXAMPLE";'
@@ -87,10 +89,7 @@ class TestTokenExtractor:
 
     def test_deduplication(self):
         """Same key appearing twice should only appear once."""
-        js = (
-            'const a = "AKIAIOSFODNN7EXAMPLE";\n'
-            'const b = "AKIAIOSFODNN7EXAMPLE";\n'
-        )
+        js = 'const a = "AKIAIOSFODNN7EXAMPLE";\nconst b = "AKIAIOSFODNN7EXAMPLE";\n'
         tokens = extract_tokens(js)
         aws = [t for t in tokens if t["type"] == "AWS Access Key"]
         assert len(aws) == 1
@@ -105,6 +104,7 @@ class TestTokenExtractor:
 
 
 # ── Orchestrator ─────────────────────────────────────────────────────────────
+
 
 class TestAnalyzeJs:
     def test_returns_success_status(self):

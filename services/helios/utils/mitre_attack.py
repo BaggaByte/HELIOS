@@ -44,25 +44,81 @@ class Technique(TypedDict):
 
 TECHNIQUES: Dict[str, Technique] = {
     "T1595": {"id": "T1595", "name": "Active Scanning", "tactic": "Reconnaissance"},
-    "T1590": {"id": "T1590", "name": "Gather Victim Network Information", "tactic": "Reconnaissance"},
-    "T1592": {"id": "T1592", "name": "Gather Victim Host Information", "tactic": "Reconnaissance"},
-    "T1589": {"id": "T1589", "name": "Gather Victim Identity Information", "tactic": "Reconnaissance"},
-    "T1190": {"id": "T1190", "name": "Exploit Public-Facing Application", "tactic": "Initial Access"},
+    "T1590": {
+        "id": "T1590",
+        "name": "Gather Victim Network Information",
+        "tactic": "Reconnaissance",
+    },
+    "T1592": {
+        "id": "T1592",
+        "name": "Gather Victim Host Information",
+        "tactic": "Reconnaissance",
+    },
+    "T1589": {
+        "id": "T1589",
+        "name": "Gather Victim Identity Information",
+        "tactic": "Reconnaissance",
+    },
+    "T1190": {
+        "id": "T1190",
+        "name": "Exploit Public-Facing Application",
+        "tactic": "Initial Access",
+    },
     "T1189": {"id": "T1189", "name": "Drive-by Compromise", "tactic": "Initial Access"},
-    "T1133": {"id": "T1133", "name": "External Remote Services", "tactic": "Initial Access"},
+    "T1133": {
+        "id": "T1133",
+        "name": "External Remote Services",
+        "tactic": "Initial Access",
+    },
     "T1078": {"id": "T1078", "name": "Valid Accounts", "tactic": "Initial Access"},
     "T1110": {"id": "T1110", "name": "Brute Force", "tactic": "Credential Access"},
-    "T1552": {"id": "T1552", "name": "Unsecured Credentials", "tactic": "Credential Access"},
-    "T1555": {"id": "T1555", "name": "Credentials from Password Stores", "tactic": "Credential Access"},
-    "T1212": {"id": "T1212", "name": "Exploitation for Credential Access", "tactic": "Credential Access"},
-    "T1059": {"id": "T1059", "name": "Command and Scripting Interpreter", "tactic": "Execution"},
-    "T1203": {"id": "T1203", "name": "Exploitation for Client Execution", "tactic": "Execution"},
-    "T1068": {"id": "T1068", "name": "Exploitation for Privilege Escalation", "tactic": "Privilege Escalation"},
-    "T1210": {"id": "T1210", "name": "Exploitation of Remote Services", "tactic": "Lateral Movement"},
+    "T1552": {
+        "id": "T1552",
+        "name": "Unsecured Credentials",
+        "tactic": "Credential Access",
+    },
+    "T1555": {
+        "id": "T1555",
+        "name": "Credentials from Password Stores",
+        "tactic": "Credential Access",
+    },
+    "T1212": {
+        "id": "T1212",
+        "name": "Exploitation for Credential Access",
+        "tactic": "Credential Access",
+    },
+    "T1059": {
+        "id": "T1059",
+        "name": "Command and Scripting Interpreter",
+        "tactic": "Execution",
+    },
+    "T1203": {
+        "id": "T1203",
+        "name": "Exploitation for Client Execution",
+        "tactic": "Execution",
+    },
+    "T1068": {
+        "id": "T1068",
+        "name": "Exploitation for Privilege Escalation",
+        "tactic": "Privilege Escalation",
+    },
+    "T1210": {
+        "id": "T1210",
+        "name": "Exploitation of Remote Services",
+        "tactic": "Lateral Movement",
+    },
     "T1021": {"id": "T1021", "name": "Remote Services", "tactic": "Lateral Movement"},
     "T1005": {"id": "T1005", "name": "Data from Local System", "tactic": "Collection"},
-    "T1041": {"id": "T1041", "name": "Exfiltration Over C2 Channel", "tactic": "Exfiltration"},
-    "T1071": {"id": "T1071", "name": "Application Layer Protocol", "tactic": "Command and Control"},
+    "T1041": {
+        "id": "T1041",
+        "name": "Exfiltration Over C2 Channel",
+        "tactic": "Exfiltration",
+    },
+    "T1071": {
+        "id": "T1071",
+        "name": "Application Layer Protocol",
+        "tactic": "Command and Control",
+    },
 }
 
 # Best-effort CWE -> likely ATT&CK technique mapping, covering the CWEs
@@ -73,11 +129,11 @@ CWE_TO_TECHNIQUE: Dict[str, str] = {
     "CWE-522": "T1552",  # Insufficiently Protected Credentials
     "CWE-259": "T1552",  # Use of Hard-coded Password
     "CWE-312": "T1552",  # Cleartext Storage of Sensitive Information
-    "CWE-89": "T1190",   # SQL Injection
-    "CWE-78": "T1190",   # OS Command Injection
+    "CWE-89": "T1190",  # SQL Injection
+    "CWE-78": "T1190",  # OS Command Injection
     "CWE-352": "T1190",  # CSRF
     "CWE-693": "T1190",  # Protection Mechanism Failure (e.g. insecure HTTP methods)
-    "CWE-79": "T1189",   # Cross-Site Scripting
+    "CWE-79": "T1189",  # Cross-Site Scripting
     "CWE-306": "T1078",  # Missing Authentication for Critical Function
     "CWE-287": "T1078",  # Improper Authentication
     "CWE-347": "T1078",  # Improper Verification of Cryptographic Signature (forged SAML assertion)

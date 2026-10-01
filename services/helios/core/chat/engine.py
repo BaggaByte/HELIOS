@@ -10,16 +10,18 @@ from helios.core.project_memory.retriever import build_memory_context_prompt
 
 logger = logging.getLogger(__name__)
 
+
 @dataclass
 class ChatMessage:
     role: str
     content: str
 
+
 class ChatEngine:
     def __init__(self):
         self.ai_runtime = OpenVINORuntime()
         self.vector_store = None
-        
+
         try:
             self.vector_store = VectorStore()
             logger.info("VectorStore initialized successfully.")
@@ -42,7 +44,13 @@ class ChatEngine:
             f"{memory_context}"
         )
 
-    def _build_prompt(self, system_prompt: str, user_prompt: str, context: str = "", history: Optional[List[ChatMessage]] = None) -> str:
+    def _build_prompt(
+        self,
+        system_prompt: str,
+        user_prompt: str,
+        context: str = "",
+        history: Optional[List[ChatMessage]] = None,
+    ) -> str:
         """
         Build a prompt using Phi-3's native chat template.
 
@@ -79,60 +87,76 @@ class ChatEngine:
         return "".join(parts)
 
     async def generate_response(
-        self, 
-        prompt: str, 
+        self,
+        prompt: str,
         history: Optional[List[ChatMessage]] = None,
         recon_context: str = "",
         project_id: str = "",
-        gen_config: Optional[GenerationConfig] = None
+        gen_config: Optional[GenerationConfig] = None,
     ) -> AsyncGenerator[str, None]:
-        
+
         start_time = time.time()
-        
+
         # 1. Context Injection (RAG & Recon)
         context_str = ""
-        
+
         if recon_context:
             context_str += f"## Active Reconnaissance Data:\n{recon_context}\n\n"
-            
+
         if self.vector_store and project_id:
             try:
-                results = self.vector_store.search_findings(query=prompt, n_results=3, project_id=project_id)
+                results = self.vector_store.search_findings(
+                    query=prompt, n_results=3, project_id=project_id
+                )
                 if results and "documents" in results and results["documents"]:
                     found_docs = results["documents"][0]
                     if found_docs:
-                        cleaned_docs = [doc.strip() for doc in found_docs if doc.strip()]
+                        cleaned_docs = [
+                            doc.strip() for doc in found_docs if doc.strip()
+                        ]
                         if cleaned_docs:
                             context_str += "## Relevant Knowledge Base Findings:\n"
                             context_str += "\n---\n".join(cleaned_docs)
-                            logger.debug(f"Retrieved {len(cleaned_docs)} context chunks.")
+                            logger.debug(
+                                f"Retrieved {len(cleaned_docs)} context chunks."
+                            )
             except Exception as e:
-                logger.warning(f"Vector search failed, proceeding without vector context: {e}")
+                logger.warning(
+                    f"Vector search failed, proceeding without vector context: {e}"
+                )
 
         # 2. Build Augmented Prompt
         memory_context = build_memory_context_prompt(project_id) if project_id else ""
         system_prompt = self._build_system_prompt(memory_context)
-        augmented_prompt = self._build_prompt(system_prompt, prompt, context_str.strip(), history)
-        
-        logger.info(f"Generated prompt in {(time.time() - start_time)*1000:.2f}ms. Starting inference...")
+        augmented_prompt = self._build_prompt(
+            system_prompt, prompt, context_str.strip(), history
+        )
+
+        logger.info(
+            f"Generated prompt in {(time.time() - start_time) * 1000:.2f}ms. Starting inference..."
+        )
 
         # 3. Stream Generation
         tokens_generated = 0
         first_token_time = None
-        
-        async for token in self.ai_runtime.generate_stream(augmented_prompt, gen_config):
+
+        async for token in self.ai_runtime.generate_stream(
+            augmented_prompt, gen_config
+        ):
             if first_token_time is None:
                 first_token_time = time.time()
-                logger.info(f"Time to first token (TTFT): {(first_token_time - start_time)*1000:.2f}ms")
-                
+                logger.info(
+                    f"Time to first token (TTFT): {(first_token_time - start_time) * 1000:.2f}ms"
+                )
+
             tokens_generated += 1
             yield token
-            
+
         logger.info(f"Generation complete. Total tokens: {tokens_generated}")
 
     def get_status(self) -> Dict[str, Any]:
         return {
             "engine": "ready",
             "vector_store_active": self.vector_store is not None,
-            "runtime_status": self.ai_runtime.get_status()
+            "runtime_status": self.ai_runtime.get_status(),
         }

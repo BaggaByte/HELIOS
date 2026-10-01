@@ -9,8 +9,9 @@ from typing import List
 from pydantic import field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+
 def get_app_data_dir() -> Path:
-    if getattr(sys, 'frozen', False):
+    if getattr(sys, "frozen", False):
         if platform.system() == "Windows":
             base = Path(os.environ.get("APPDATA", "~")).expanduser()
         elif platform.system() == "Darwin":
@@ -21,8 +22,10 @@ def get_app_data_dir() -> Path:
     else:
         return Path.cwd() / "data"
 
+
 DATA_DIR = get_app_data_dir()
 DATA_DIR.mkdir(parents=True, exist_ok=True)
+
 
 class Settings(BaseSettings):
     # ── Application ──────────────────────────────────────────────────────────
@@ -41,9 +44,9 @@ class Settings(BaseSettings):
     # ── AI / OpenVINO ─────────────────────────────────────────────────────────
     # Path defaults to the App Data directory
     OV_MODEL_PATH: str = str(DATA_DIR / "models" / "phi4_mini_int4_ov")
-    OV_DEVICE: str = "AUTO"          # AUTO lets the runtime pick NPU > GPU > CPU
+    OV_DEVICE: str = "AUTO"  # AUTO lets the runtime pick NPU > GPU > CPU
     OV_MAX_CONTEXT: int = 4096
-    OV_TEMPERATURE: float = 0.1      # Low temp keeps security analysis grounded
+    OV_TEMPERATURE: float = 0.1  # Low temp keeps security analysis grounded
     OV_TOP_P: float = 0.9
 
     # ── Security ──────────────────────────────────────────────────────────────
@@ -87,7 +90,7 @@ class Settings(BaseSettings):
         Provision a persistent SECRET_KEY in the OS app-data directory.
         """
         secret_file = DATA_DIR / ".secret"
-        
+
         # Load persistent key if it exists
         if secret_file.exists():
             with open(secret_file, "r") as f:
@@ -96,7 +99,7 @@ class Settings(BaseSettings):
                     return stored_key
 
         is_debug = info.data.get("DEBUG", False)
-        
+
         if not v or v in ("change-me-in-production", "changeme", ""):
             generated = secrets.token_hex(32)
             try:
@@ -108,17 +111,20 @@ class Settings(BaseSettings):
             except Exception as e:
                 if not is_debug:
                     raise ValueError(f"Failed to provision persistent SECRET_KEY: {e}")
-                
+
                 import warnings
+
                 warnings.warn(
                     "\n\n⚠️  Failed to persist SECRET_KEY. Using random key for session.\n",
                     stacklevel=2,
                 )
                 return generated
-                
+
         if not is_debug and len(v) < 32:
-            raise ValueError("SECRET_KEY must be at least 32 characters long when DEBUG=False.")
-            
+            raise ValueError(
+                "SECRET_KEY must be at least 32 characters long when DEBUG=False."
+            )
+
         return v
 
     @field_validator("OV_DEVICE", mode="before")
@@ -161,6 +167,7 @@ class Settings(BaseSettings):
             stripped = v.strip()
             if stripped.startswith("["):
                 import json
+
                 try:
                     return json.loads(stripped)
                 except json.JSONDecodeError:

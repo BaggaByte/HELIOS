@@ -6,6 +6,4 @@ from .nmap import parse_nmap_xml
 # from .ffuf import parse_ffuf
 # from .masscan import parse_masscan
 
-__all__ = [
-    "parse_nmap_xml"
-]
+__all__ = ["parse_nmap_xml"]

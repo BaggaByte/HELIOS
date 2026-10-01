@@ -1,4 +1,13 @@
-from fastapi import APIRouter, UploadFile, File, HTTPException, Depends, Form, Path, Query
+from fastapi import (
+    APIRouter,
+    UploadFile,
+    File,
+    HTTPException,
+    Depends,
+    Form,
+    Path,
+    Query,
+)
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, desc, func
 import logging
@@ -15,6 +24,7 @@ router = APIRouter()
 
 async def get_project_or_404(project_id, db: AsyncSession) -> Project:
     import uuid
+
     pid = project_id
     result = await db.execute(select(Project).where(Project.id == pid))
     project = result.scalars().first()
@@ -95,7 +105,9 @@ async def get_timeline(
     count_stmt = select(func.count()).select_from(query.subquery())
     total = (await db.execute(count_stmt)).scalar_one()
 
-    query = query.order_by(desc(LogEvent.timestamp)).offset((page - 1) * limit).limit(limit)
+    query = (
+        query.order_by(desc(LogEvent.timestamp)).offset((page - 1) * limit).limit(limit)
+    )
     events_result = await db.execute(query)
     events = events_result.scalars().all()
 

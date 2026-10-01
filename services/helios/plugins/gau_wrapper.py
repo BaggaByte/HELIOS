@@ -46,13 +46,17 @@ class GauPlugin(BasePlugin):
             return self._not_available_error()
 
         timeout: int = int(payload.get("timeout", 300))
-        blacklist: str = payload.get("blacklist", "png,jpg,gif,svg,css,woff,woff2,ttf,ico")
+        blacklist: str = payload.get(
+            "blacklist", "png,jpg,gif,svg,css,woff,woff2,ttf,ico"
+        )
 
         cmd = [
             "gau",
             target,
-            "--blacklist", blacklist,
-            "--threads", "5",
+            "--blacklist",
+            blacklist,
+            "--threads",
+            "5",
         ]
 
         logger.info(f"[gau] Fetching archived URLs for {target!r}")

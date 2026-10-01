@@ -10,6 +10,7 @@ from alembic import context
 # Import our models
 import sys
 from pathlib import Path
+
 sys.path.append(str(Path(__file__).parent.parent))
 from helios.models import Base
 from helios.config import get_settings
@@ -60,9 +61,7 @@ def run_migrations_offline() -> None:
 
 def do_run_migrations(connection: Connection) -> None:
     context.configure(
-        connection=connection,
-        target_metadata=target_metadata,
-        render_as_batch=True
+        connection=connection, target_metadata=target_metadata, render_as_batch=True
     )
 
     with context.begin_transaction():

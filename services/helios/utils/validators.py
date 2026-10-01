@@ -62,11 +62,11 @@ def is_valid_domain(value: str) -> bool:
     """True if `value` looks like a syntactically valid DNS domain name (including wildcards)."""
     if not value or len(value) > 253:
         return False
-    
+
     # Strip optional leading wildcard
     if value.startswith("*."):
         value = value[2:]
-        
+
     return bool(_DOMAIN_RE.match(value.rstrip(".")))
 
 
@@ -142,11 +142,12 @@ def is_target_in_scope(target: str, scope_definitions: list[str]) -> bool:
         target_ips.add(target)
     else:
         import socket
+
         try:
             # We resolve it to ensure we check the actual destination IP
             target_ips.add(socket.gethostbyname(target))
         except socket.gaierror:
-            pass # Unresolvable, we will just check the domain name itself
+            pass  # Unresolvable, we will just check the domain name itself
 
     # Normalize scope entries upfront
     scope_cidrs = []
@@ -157,7 +158,7 @@ def is_target_in_scope(target: str, scope_definitions: list[str]) -> bool:
         entry = entry.strip().rstrip(".")
         if not entry or entry == "*":
             return True
-            
+
         if is_valid_cidr(entry):
             try:
                 scope_cidrs.append(ipaddress.ip_network(entry, strict=False))
@@ -171,17 +172,22 @@ def is_target_in_scope(target: str, scope_definitions: list[str]) -> bool:
     # 2. Check resolved IP(s) against allowed IPs and CIDRs
     ip_authorized = False
     has_private_ip = False
-    
+
     for ip_str in target_ips:
         try:
             ip_obj = ipaddress.ip_address(ip_str)
-            if ip_obj.is_private or ip_obj.is_loopback or ip_obj.is_multicast or ip_obj.is_reserved:
+            if (
+                ip_obj.is_private
+                or ip_obj.is_loopback
+                or ip_obj.is_multicast
+                or ip_obj.is_reserved
+            ):
                 has_private_ip = True
-                
+
             if ip_str in scope_ips:
                 ip_authorized = True
                 continue
-                
+
             for network in scope_cidrs:
                 if ip_obj in network:
                     ip_authorized = True
@@ -200,7 +206,7 @@ def is_target_in_scope(target: str, scope_definitions: list[str]) -> bool:
             if target == scope_domain or target.endswith("." + scope_domain):
                 domain_match = True
                 break
-                
+
     if domain_match:
         # Prevent SSRF: A matching domain resolving to an unauthorized private IP is blocked
         if has_private_ip and not ip_authorized:

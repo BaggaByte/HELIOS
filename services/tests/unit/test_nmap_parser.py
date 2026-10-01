@@ -28,6 +28,7 @@ def _load(filename: str) -> bytes:
 
 # ── Single host ───────────────────────────────────────────────────────────────
 
+
 class TestSingleHost:
     def setup_method(self):
         self.hosts = parse_nmap_xml(_load("nmap_basic.xml"), only_open=True)
@@ -95,6 +96,7 @@ class TestSingleHostWithClosed:
 
 # ── Multi-host ────────────────────────────────────────────────────────────────
 
+
 class TestMultiHost:
     def setup_method(self):
         self.hosts = parse_nmap_xml(_load("nmap_multi_host.xml"), only_open=True)
@@ -124,12 +126,14 @@ class TestMultiHost:
 
 # ── Empty / down-only scan ────────────────────────────────────────────────────
 
+
 def test_empty_scan_returns_empty_list():
     hosts = parse_nmap_xml(_load("nmap_empty.xml"), only_open=True)
     assert hosts == []
 
 
 # ── Invalid XML ───────────────────────────────────────────────────────────────
+
 
 def test_invalid_xml_raises_value_error():
     with pytest.raises(ValueError, match="Invalid Nmap XML"):
@@ -143,6 +147,7 @@ def test_truncated_xml_raises_value_error():
 
 # ── String input ─────────────────────────────────────────────────────────────
 
+
 def test_accepts_string_input():
     xml_str = _load("nmap_basic.xml").decode("utf-8")
     hosts = parse_nmap_xml(xml_str)
@@ -150,6 +155,7 @@ def test_accepts_string_input():
 
 
 # ── Helper utilities ─────────────────────────────────────────────────────────
+
 
 class TestHelpers:
     def setup_method(self):

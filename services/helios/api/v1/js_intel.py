@@ -12,7 +12,9 @@ class AnalyzeRequest(BaseModel):
     code: str
 
 
-@router.post("/analyze", summary="Analyse raw JavaScript for endpoints, tokens, and secrets")
+@router.post(
+    "/analyze", summary="Analyse raw JavaScript for endpoints, tokens, and secrets"
+)
 async def analyze_js_endpoint(
     project_id: str = Path(...),
     request: AnalyzeRequest = ...,
@@ -32,7 +34,9 @@ async def analyze_js_file(
     file: UploadFile = File(...),
 ):
     if not (file.filename or "").endswith(".js"):
-        raise HTTPException(status_code=400, detail="File must be a JavaScript (.js) file")
+        raise HTTPException(
+            status_code=400, detail="File must be a JavaScript (.js) file"
+        )
     try:
         content = await file.read()
         code_str = content.decode("utf-8", errors="ignore")

@@ -16,9 +16,9 @@ class Service:
     product: Optional[str] = None
     version: Optional[str] = None
     extrainfo: Optional[str] = None
-    tunnel: Optional[str] = None          # e.g. ssl
-    method: Optional[str] = None          # e.g. probed
-    conf: Optional[int] = None            # confidence
+    tunnel: Optional[str] = None  # e.g. ssl
+    method: Optional[str] = None  # e.g. probed
+    conf: Optional[int] = None  # confidence
     cpe: List[str] = field(default_factory=list)
     scripts: Dict[str, str] = field(default_factory=dict)  # script_id -> output
     banner: Optional[str] = None
@@ -47,8 +47,8 @@ class Host:
     host_scripts: Dict[str, str] = field(default_factory=dict)  # host-level scripts
     start_time: Optional[datetime] = None
     end_time: Optional[datetime] = None
-    distance: Optional[int] = None          # hop distance
-    uptime: Optional[int] = None            # seconds
+    distance: Optional[int] = None  # hop distance
+    uptime: Optional[int] = None  # seconds
     lastboot: Optional[str] = None
 
     def to_dict(self) -> Dict[str, Any]:
@@ -325,6 +325,7 @@ def parse_nmap_xml(
 # Convenience helpers
 # ---------------------------------------------------------------------------
 
+
 def get_open_ports(hosts: List[Dict[str, Any]]) -> Dict[str, List[int]]:
     """Return {ip: [open_ports]} mapping."""
     return {
@@ -333,14 +334,18 @@ def get_open_ports(hosts: List[Dict[str, Any]]) -> Dict[str, List[int]]:
     }
 
 
-def filter_by_service(hosts: List[Dict[str, Any]], service_name: str) -> List[Dict[str, Any]]:
+def filter_by_service(
+    hosts: List[Dict[str, Any]], service_name: str
+) -> List[Dict[str, Any]]:
     """Return only hosts that have a given service name open."""
     service_name = service_name.lower()
     filtered = []
     for h in hosts:
         matching = [
-            s for s in h.get("services", [])
-            if s.get("state") == "open" and (s.get("name") or "").lower() == service_name
+            s
+            for s in h.get("services", [])
+            if s.get("state") == "open"
+            and (s.get("name") or "").lower() == service_name
         ]
         if matching:
             new_h = h.copy()
@@ -361,4 +366,6 @@ def pretty_print_hosts(hosts: List[Dict[str, Any]]) -> None:
                 continue
             ver = s.get("version_string") or s.get("version") or ""
             banner = f"  | {s['banner'][:60]}…" if s.get("banner") else ""
-            print(f"  {s['port']}/{s['protocol']:4}  {s.get('name') or '':12}  {ver}{banner}")
+            print(
+                f"  {s['port']}/{s['protocol']:4}  {s.get('name') or '':12}  {ver}{banner}"
+            )

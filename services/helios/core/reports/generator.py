@@ -38,13 +38,16 @@ async def _generate_ai_summary(project: Project, findings, risk_data: dict) -> s
     """
     try:
         from helios.infrastructure.openvino_runtime import OpenVINORuntime
+
         runtime = OpenVINORuntime()
 
         if not runtime.pipeline:
             # Model not loaded — return a meaningful stats-based fallback
             raise RuntimeError("Model not loaded — using fallback summary.")
 
-        n_critical = sum(1 for f in findings if (f.severity or "").lower() == "critical")
+        n_critical = sum(
+            1 for f in findings if (f.severity or "").lower() == "critical"
+        )
         n_high = sum(1 for f in findings if (f.severity or "").lower() == "high")
         n_medium = sum(1 for f in findings if (f.severity or "").lower() == "medium")
 
@@ -71,7 +74,10 @@ async def _generate_ai_summary(project: Project, findings, risk_data: dict) -> s
         )
 
         from helios.infrastructure.openvino_runtime import GenerationConfig
-        gen_config = GenerationConfig(max_new_tokens=512, temperature=0.2, do_sample=False)
+
+        gen_config = GenerationConfig(
+            max_new_tokens=512, temperature=0.2, do_sample=False
+        )
 
         tokens = []
         async for token in runtime.generate_stream(prompt, gen_config):

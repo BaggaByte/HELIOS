@@ -57,12 +57,16 @@ class RustscanPlugin(BasePlugin):
         # --no-nmap to get clean port list without spawning nmap
         cmd = [
             "rustscan",
-            "-a", target,
-            "-b", str(batch_size),
-            "-r", ports,
+            "-a",
+            target,
+            "-b",
+            str(batch_size),
+            "-r",
+            ports,
             "--no-nmap",
-            "--accessible",     # machine-readable output
-            "--timeout", "1500",
+            "--accessible",  # machine-readable output
+            "--timeout",
+            "1500",
         ]
 
         logger.info(f"[rustscan] Scanning {target!r} ports={ports}")
@@ -100,19 +104,23 @@ class RustscanPlugin(BasePlugin):
                 if ":" in rest:
                     ip, port_str = rest.rsplit(":", 1)
                     try:
-                        results.append({
-                            "ip": ip.strip(),
-                            "port": int(port_str.strip()),
-                            "protocol": "tcp",
-                            "status": "open",
-                        })
+                        results.append(
+                            {
+                                "ip": ip.strip(),
+                                "port": int(port_str.strip()),
+                                "protocol": "tcp",
+                                "status": "open",
+                            }
+                        )
                     except ValueError:
                         pass
             elif _PORT_LINE_RE.match(line):
-                results.append({
-                    "ip": target,
-                    "port": int(line),
-                    "protocol": "tcp",
-                    "status": "open",
-                })
+                results.append(
+                    {
+                        "ip": target,
+                        "port": int(line),
+                        "protocol": "tcp",
+                        "status": "open",
+                    }
+                )
         return results

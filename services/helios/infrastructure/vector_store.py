@@ -8,7 +8,7 @@ plaintext inside the Chroma SQLite/parquet store.
 
 How it works
 ────────────
-• `add_finding()` / `add_document()` manually generate embeddings from the 
+• `add_finding()` / `add_document()` manually generate embeddings from the
   plaintext before encryption, and store only the encrypted document in ChromaDB.
 
 • `search_findings()` / `search_documents()` decrypt retrieved documents
@@ -39,6 +39,7 @@ def _try_load_encryption() -> Any:
     """Return an EncryptionManager instance. Fails closed if unavailable."""
     try:
         from helios.infrastructure.encryption import EncryptionManager
+
         return EncryptionManager()
     except Exception as exc:
         logger.error(
@@ -91,7 +92,9 @@ class VectorStore:
             raise RuntimeError("EncryptionManager is missing.")
         # Fail closed on unexpected plaintext (Fernet tokens always start with gAAAAA)
         if not stored.startswith("gAAAAA"):
-            logger.error("VectorStore: Found unencrypted data in store. Migration required.")
+            logger.error(
+                "VectorStore: Found unencrypted data in store. Migration required."
+            )
             raise ValueError("Unexpected plaintext record found in vector store.")
         try:
             return self._enc.decrypt_data(stored.encode("utf-8")).decode("utf-8")
@@ -117,13 +120,15 @@ class VectorStore:
         """
         try:
             # Manually embed the plaintext first
-            ef = getattr(self.findings_collection, "_embedding_function", None) or getattr(self.findings_collection, "embedding_function", None)
+            ef = getattr(
+                self.findings_collection, "_embedding_function", None
+            ) or getattr(self.findings_collection, "embedding_function", None)
             if not ef:
                 raise RuntimeError("No embedding function found on collection")
-            
+
             embeddings = ef([text])
             ciphertext = self._encrypt(text)
-            
+
             self.findings_collection.add(
                 documents=[ciphertext],
                 embeddings=embeddings,
@@ -137,13 +142,15 @@ class VectorStore:
     def add_document(self, id: str, text: str, metadata: Optional[dict] = None) -> None:
         """Add a parsed document to the docs collection (encrypted at rest)."""
         try:
-            ef = getattr(self.docs_collection, "_embedding_function", None) or getattr(self.docs_collection, "embedding_function", None)
+            ef = getattr(self.docs_collection, "_embedding_function", None) or getattr(
+                self.docs_collection, "embedding_function", None
+            )
             if not ef:
                 raise RuntimeError("No embedding function found on collection")
-            
+
             embeddings = ef([text])
             ciphertext = self._encrypt(text)
-            
+
             self.docs_collection.add(
                 documents=[ciphertext],
                 embeddings=embeddings,

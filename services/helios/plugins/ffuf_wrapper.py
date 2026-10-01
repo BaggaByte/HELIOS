@@ -56,21 +56,27 @@ class FfufPlugin(BasePlugin):
             return self._not_available_error()
 
         timeout: int = int(payload.get("timeout", 300))
-        filter_codes: str = payload.get("filter_codes", "")   # e.g. "404,301"
-        match_codes: str = payload.get("match_codes", "")      # e.g. "200,302"
+        filter_codes: str = payload.get("filter_codes", "")  # e.g. "404,301"
+        match_codes: str = payload.get("match_codes", "")  # e.g. "200,302"
         rate: int = int(payload.get("rate", 150))
 
         output_file = self.temp_json_output_file(suffix=".json")
         try:
             cmd = [
                 "ffuf",
-                "-u", target,
-                "-w", wordlist,
-                "-of", "json",
-                "-o", output_file,
-                "-rate", str(rate),
-                "-t", "50",          # threads
-                "-s",                # silent (no banner)
+                "-u",
+                target,
+                "-w",
+                wordlist,
+                "-of",
+                "json",
+                "-o",
+                output_file,
+                "-rate",
+                str(rate),
+                "-t",
+                "50",  # threads
+                "-s",  # silent (no banner)
             ]
             if filter_codes:
                 cmd += ["-fc", filter_codes]
@@ -112,13 +118,15 @@ class FfufPlugin(BasePlugin):
 
         hits: List[Dict[str, Any]] = []
         for r in data.get("results", []):
-            hits.append({
-                "url": r.get("url", ""),
-                "status": r.get("status", 0),
-                "length": r.get("length", 0),
-                "words": r.get("words", 0),
-                "lines": r.get("lines", 0),
-                "redirectlocation": r.get("redirectlocation", ""),
-                "input": r.get("input", {}),
-            })
+            hits.append(
+                {
+                    "url": r.get("url", ""),
+                    "status": r.get("status", 0),
+                    "length": r.get("length", 0),
+                    "words": r.get("words", 0),
+                    "lines": r.get("lines", 0),
+                    "redirectlocation": r.get("redirectlocation", ""),
+                    "input": r.get("input", {}),
+                }
+            )
         return hits

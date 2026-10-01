@@ -33,7 +33,9 @@ class DnsxPlugin(BasePlugin):
 
     @property
     def description(self) -> str:
-        return "Executes dnsx for DNS resolution, record enumeration, and brute-forcing."
+        return (
+            "Executes dnsx for DNS resolution, record enumeration, and brute-forcing."
+        )
 
     # ------------------------------------------------------------------
 
@@ -51,10 +53,11 @@ class DnsxPlugin(BasePlugin):
 
         cmd = [
             "dnsx",
-            "-d", target,
+            "-d",
+            target,
             "-json",
             "-silent",
-            "-resp",            # include response in output
+            "-resp",  # include response in output
         ]
         # Add record type flags
         for rt in record_types.split(","):
@@ -88,15 +91,17 @@ class DnsxPlugin(BasePlugin):
     def _parse_output(self, stdout: str) -> List[Dict[str, Any]]:
         results: List[Dict[str, Any]] = []
         for record in self.parse_jsonlines(stdout):
-            results.append({
-                "host": record.get("host", ""),
-                "resolver": record.get("resolver", ""),
-                "a": record.get("a", []),
-                "aaaa": record.get("aaaa", []),
-                "cname": record.get("cname", []),
-                "mx": record.get("mx", []),
-                "ns": record.get("ns", []),
-                "txt": record.get("txt", []),
-                "ptr": record.get("ptr", []),
-            })
+            results.append(
+                {
+                    "host": record.get("host", ""),
+                    "resolver": record.get("resolver", ""),
+                    "a": record.get("a", []),
+                    "aaaa": record.get("aaaa", []),
+                    "cname": record.get("cname", []),
+                    "mx": record.get("mx", []),
+                    "ns": record.get("ns", []),
+                    "txt": record.get("txt", []),
+                    "ptr": record.get("ptr", []),
+                }
+            )
         return results

@@ -45,9 +45,17 @@ def _detect_target() -> str:
     if system == "windows":
         return "x86_64-pc-windows-msvc"
     if system == "darwin":
-        return "aarch64-apple-darwin" if machine in ("arm64", "aarch64") else "x86_64-apple-darwin"
+        return (
+            "aarch64-apple-darwin"
+            if machine in ("arm64", "aarch64")
+            else "x86_64-apple-darwin"
+        )
     # Linux
-    return "aarch64-unknown-linux-gnu" if machine in ("aarch64", "arm64") else "x86_64-unknown-linux-gnu"
+    return (
+        "aarch64-unknown-linux-gnu"
+        if machine in ("aarch64", "arm64")
+        else "x86_64-unknown-linux-gnu"
+    )
 
 
 def _pyinstaller_sep() -> str:
@@ -83,7 +91,9 @@ def build(target: str | None = None) -> None:
     alembic_dir = base_dir / "alembic"
 
     pyinstaller_args = [
-        sys.executable, "-m", "PyInstaller",
+        sys.executable,
+        "-m",
+        "PyInstaller",
         "helios/main.py",
         "--name=helios_backend",
         "--onefile",
@@ -145,7 +155,9 @@ def _verify_macos_arch(binary: Path, target: str) -> None:
     """Run `lipo -archs` and confirm the binary matches the expected target."""
     expected_arch = "arm64" if "aarch64" in target else "x86_64"
     try:
-        out = subprocess.check_output(["lipo", "-archs", str(binary)], stderr=subprocess.DEVNULL)
+        out = subprocess.check_output(
+            ["lipo", "-archs", str(binary)], stderr=subprocess.DEVNULL
+        )
         arch_str = out.decode().strip()
         if expected_arch not in arch_str:
             print(

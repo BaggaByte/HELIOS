@@ -2,6 +2,7 @@ import json
 from datetime import datetime
 from typing import Dict, Any, Optional
 
+
 def parse_zeek_json_log(line: str) -> Optional[Dict[str, Any]]:
     try:
         data = json.loads(line)
@@ -10,17 +11,20 @@ def parse_zeek_json_log(line: str) -> Optional[Dict[str, Any]]:
             dt = datetime.fromtimestamp(ts)
         else:
             dt = datetime.now()
-            
+
         uid = data.get("uid")
         id_orig_h = data.get("id.orig_h")
         id_resp_h = data.get("id.resp_h")
-        
+
         # Determine log type based on fields
         log_type = "unknown"
-        if "id.orig_p" in data: log_type = "conn"
-        if "host" in data and "uri" in data: log_type = "http"
-        if "query" in data and "qtype_name" in data: log_type = "dns"
-        
+        if "id.orig_p" in data:
+            log_type = "conn"
+        if "host" in data and "uri" in data:
+            log_type = "http"
+        if "query" in data and "qtype_name" in data:
+            log_type = "dns"
+
         return {
             "timestamp": dt,
             "source": "zeek",
@@ -29,7 +33,7 @@ def parse_zeek_json_log(line: str) -> Optional[Dict[str, Any]]:
             "message": f"Zeek {log_type} connection {uid}",
             "source_ip": id_orig_h,
             "dest_ip": id_resp_h,
-            "metadata": data
+            "metadata": data,
         }
     except Exception:
         return None

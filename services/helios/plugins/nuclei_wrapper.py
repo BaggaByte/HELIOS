@@ -62,11 +62,13 @@ class NucleiPlugin(BasePlugin):
 
         cmd = [
             "nuclei",
-            "-u", target,
-            "-json",                # JSON-lines output on stdout
-            "-silent",              # suppress banner / progress
+            "-u",
+            target,
+            "-json",  # JSON-lines output on stdout
+            "-silent",  # suppress banner / progress
             "-no-color",
-            "-rate-limit", "50",    # be polite during authorised tests
+            "-rate-limit",
+            "50",  # be polite during authorised tests
         ] + extra_args
 
         logger.info(f"[nuclei] Scanning {target!r}  cmd={' '.join(cmd)}")
@@ -100,17 +102,21 @@ class NucleiPlugin(BasePlugin):
             severity_raw = info.get("severity", "info")
             severity = _NUCLEI_SEVERITY_MAP.get(severity_raw.lower(), "info")
 
-            findings.append({
-                "title": info.get("name", record.get("template-id", "Nuclei Finding")),
-                "description": info.get("description", ""),
-                "severity": severity,
-                "matched_at": record.get("matched-at", ""),
-                "template_id": record.get("template-id", ""),
-                "extracted_results": record.get("extracted-results", []),
-                "tags": info.get("tags", []),
-                "reference": info.get("reference", []),
-                "cwe_id": None,
-                "status": "observed",
-                "source": "nuclei",
-            })
+            findings.append(
+                {
+                    "title": info.get(
+                        "name", record.get("template-id", "Nuclei Finding")
+                    ),
+                    "description": info.get("description", ""),
+                    "severity": severity,
+                    "matched_at": record.get("matched-at", ""),
+                    "template_id": record.get("template-id", ""),
+                    "extracted_results": record.get("extracted-results", []),
+                    "tags": info.get("tags", []),
+                    "reference": info.get("reference", []),
+                    "cwe_id": None,
+                    "status": "observed",
+                    "source": "nuclei",
+                }
+            )
         return findings

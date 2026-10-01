@@ -49,10 +49,11 @@ class SubfinderPlugin(BasePlugin):
 
         cmd = [
             "subfinder",
-            "-d", target,
-            "-oJ",          # JSON-lines output
+            "-d",
+            target,
+            "-oJ",  # JSON-lines output
             "-silent",
-            "-all",         # use all sources (respects ~/.config/subfinder/config.yaml)
+            "-all",  # use all sources (respects ~/.config/subfinder/config.yaml)
         ]
 
         logger.info(f"[subfinder] Enumerating subdomains for {target!r}")
@@ -83,11 +84,13 @@ class SubfinderPlugin(BasePlugin):
         for record in self.parse_jsonlines(stdout):
             host = record.get("host") or record.get("input", "")
             if host:
-                results.append({
-                    "host": host,
-                    "source": record.get("source", ""),
-                    "ip": record.get("ip", ""),
-                })
+                results.append(
+                    {
+                        "host": host,
+                        "source": record.get("source", ""),
+                        "ip": record.get("ip", ""),
+                    }
+                )
         # Deduplicate by host
         seen = set()
         deduped = []

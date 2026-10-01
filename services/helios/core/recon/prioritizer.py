@@ -101,7 +101,8 @@ class RiskPrioritizer:
         # 5. Any other unrecognised high-value ports (catch-all)
         # ------------------------------------------------------------------
         unknown_hvp = [
-            p for p in exposed_ports
+            p
+            for p in exposed_ports
             if p not in _DB_PORTS and p not in _REMOTE_ADMIN_PORTS
         ]
         if unknown_hvp:

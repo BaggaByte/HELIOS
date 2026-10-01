@@ -1,4 +1,13 @@
-from fastapi import APIRouter, UploadFile, File, HTTPException, Depends, Query, status, Path
+from fastapi import (
+    APIRouter,
+    UploadFile,
+    File,
+    HTTPException,
+    Depends,
+    Query,
+    status,
+    Path,
+)
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, delete, and_, func
 from sqlalchemy.orm import selectinload
@@ -25,6 +34,7 @@ router = APIRouter()
 # ──────────────────────────────────────────────────────────────
 # Pydantic Schemas
 # ──────────────────────────────────────────────────────────────
+
 
 class ServiceOut(BaseModel):
     id: str
@@ -94,6 +104,7 @@ class PluginExecuteRequest(BaseModel):
 # Helpers
 # ──────────────────────────────────────────────────────────────
 
+
 async def get_project_or_404(project_id: str, db: AsyncSession) -> Project:
     result = await db.execute(select(Project).where(Project.id == project_id))
     project = result.scalars().first()
@@ -152,6 +163,7 @@ def _serialize_host(h: Host) -> HostOut:
 # Endpoints
 # ──────────────────────────────────────────────────────────────
 
+
 @router.post(
     "/ingest/nmap",
     response_model=IngestSummary,
@@ -162,7 +174,9 @@ async def ingest_nmap(
     project_id: str = Path(...),
     file: UploadFile = File(..., description="Nmap XML output file"),
     only_open: bool = Query(True, description="Only ingest hosts that have open ports"),
-    replace_services: bool = Query(False, description="Delete existing services before inserting"),
+    replace_services: bool = Query(
+        False, description="Delete existing services before inserting"
+    ),
     db: AsyncSession = Depends(get_db_session),
 ):
     if not file.filename or not file.filename.lower().endswith(".xml"):
@@ -181,21 +195,41 @@ async def ingest_nmap(
         raise HTTPException(status_code=500, detail="Failed to parse Nmap XML")
 
     project = await get_project_or_404(project_id, db)
-    scope_entries = [entry.strip() for entry in re.split(r"[,;\n]+", project.scope or "") if entry.strip()]
-    exclusions = [entry.strip() for entry in re.split(r"[,;\n]+", project.out_of_scope or "") if entry.strip()]
-    out_of_scope_hosts = [host.get("ip") for host in hosts_data if host.get("ip") and (
-        not scope_entries or "*" in scope_entries or not is_target_in_scope(host["ip"], scope_entries)
-        or any(is_target_in_scope(host["ip"], [entry]) for entry in exclusions)
-    )]
+    scope_entries = [
+        entry.strip()
+        for entry in re.split(r"[,;\n]+", project.scope or "")
+        if entry.strip()
+    ]
+    exclusions = [
+        entry.strip()
+        for entry in re.split(r"[,;\n]+", project.out_of_scope or "")
+        if entry.strip()
+    ]
+    out_of_scope_hosts = [
+        host.get("ip")
+        for host in hosts_data
+        if host.get("ip")
+        and (
+            not scope_entries
+            or "*" in scope_entries
+            or not is_target_in_scope(host["ip"], scope_entries)
+            or any(is_target_in_scope(host["ip"], [entry]) for entry in exclusions)
+        )
+    ]
     if out_of_scope_hosts:
-        raise HTTPException(status_code=403, detail=f"Nmap report contains hosts outside this project's authorized scope: {', '.join(out_of_scope_hosts[:10])}")
+        raise HTTPException(
+            status_code=403,
+            detail=f"Nmap report contains hosts outside this project's authorized scope: {', '.join(out_of_scope_hosts[:10])}",
+        )
 
     if not hosts_data:
         return IngestSummary(
             project_id=str(project_id),
             project_name="",
-            hosts_created=0, hosts_updated=0,
-            services_created=0, services_updated=0,
+            hosts_created=0,
+            hosts_updated=0,
+            services_created=0,
+            services_updated=0,
             total_hosts_in_file=0,
             message="No live hosts with open ports found in the scan",
         )
@@ -261,7 +295,10 @@ async def ingest_nmap(
                 host.uptime = host_info.get("uptime") or host.uptime
                 host.lastboot = _safe_str(host_info.get("lastboot")) or host.lastboot
                 if host_info.get("host_scripts"):
-                    host.host_scripts = {**(host.host_scripts or {}), **host_info["host_scripts"]}
+                    host.host_scripts = {
+                        **(host.host_scripts or {}),
+                        **host_info["host_scripts"],
+                    }
                 hosts_updated += 1
 
             await db.flush()
@@ -323,7 +360,10 @@ async def ingest_nmap(
                     if svc_info.get("cpe"):
                         service.cpe = svc_info["cpe"]
                     if svc_info.get("scripts"):
-                        service.scripts = {**(service.scripts or {}), **svc_info["scripts"]}
+                        service.scripts = {
+                            **(service.scripts or {}),
+                            **svc_info["scripts"],
+                        }
                     services_updated += 1
 
         await db.commit()
@@ -334,17 +374,23 @@ async def ingest_nmap(
         try:
             if affected_host_ids:
                 synced_hosts = (
-                    await db.execute(
-                        select(Host)
-                        .where(Host.id.in_(affected_host_ids))
-                        .options(selectinload(Host.services))
+                    (
+                        await db.execute(
+                            select(Host)
+                            .where(Host.id.in_(affected_host_ids))
+                            .options(selectinload(Host.services))
+                        )
                     )
-                ).scalars().all()
+                    .scalars()
+                    .all()
+                )
                 for h in synced_hosts:
                     await sync_host_with_services(db, project.id, h)
                 await db.commit()
         except Exception:
-            logger.exception("Knowledge graph sync failed after Nmap ingest (non-fatal)")
+            logger.exception(
+                "Knowledge graph sync failed after Nmap ingest (non-fatal)"
+            )
             await db.rollback()
 
         msg = (
@@ -371,7 +417,11 @@ async def ingest_nmap(
         raise HTTPException(status_code=500, detail="Database error during ingest")
 
 
-@router.get("/hosts", response_model=HostListResponse, summary="List hosts with filtering & pagination")
+@router.get(
+    "/hosts",
+    response_model=HostListResponse,
+    summary="List hosts with filtering & pagination",
+)
 async def get_hosts(
     project_id: str = Path(...),
     ip: Optional[str] = Query(None),
@@ -402,7 +452,9 @@ async def get_hosts(
         if port is not None:
             stmt = stmt.where(Service.port == port, Service.state == "open")
         if service:
-            stmt = stmt.where(Service.name.ilike(f"%{service}%"), Service.state == "open")
+            stmt = stmt.where(
+                Service.name.ilike(f"%{service}%"), Service.state == "open"
+            )
         stmt = stmt.distinct()
 
     count_stmt = select(func.count()).select_from(stmt.subquery())
@@ -420,7 +472,9 @@ async def get_hosts(
     )
 
 
-@router.get("/hosts/{host_id}", response_model=HostOut, summary="Get a single host by ID")
+@router.get(
+    "/hosts/{host_id}", response_model=HostOut, summary="Get a single host by ID"
+)
 async def get_host(
     project_id: str = Path(...),
     host_id: str = Path(...),
@@ -437,7 +491,9 @@ async def get_host(
     return _serialize_host(host)
 
 
-@router.delete("/hosts/{host_id}", status_code=status.HTTP_204_NO_CONTENT, summary="Delete a host")
+@router.delete(
+    "/hosts/{host_id}", status_code=status.HTTP_204_NO_CONTENT, summary="Delete a host"
+)
 async def delete_host(
     project_id: str = Path(...),
     host_id: str = Path(...),
@@ -471,22 +527,30 @@ async def list_recon_plugins():
     """Returns all registered plugins and whether their binary is reachable."""
     from helios.infrastructure.plugin_registry import plugin_registry
     import shutil
+
     plugin_registry.load_all()
     plugins_out = []
     for name in sorted(_ALL_SUPPORTED_PLUGINS):
         plugin = plugin_registry.get_plugin(name)
         if plugin:
-            plugins_out.append({
-                "name": plugin.name,
-                "version": plugin.version,
-                "description": plugin.description,
-                "available": shutil.which(plugin.name) is not None,
-                "category": "host_discovery" if name in _HOST_DISCOVERY_PLUGINS else "recon",
-            })
+            plugins_out.append(
+                {
+                    "name": plugin.name,
+                    "version": plugin.version,
+                    "description": plugin.description,
+                    "available": shutil.which(plugin.name) is not None,
+                    "category": "host_discovery"
+                    if name in _HOST_DISCOVERY_PLUGINS
+                    else "recon",
+                }
+            )
     return {"plugins": plugins_out}
 
 
-@router.post("/plugins/{plugin_name}", summary="Execute a recon plugin against an in-scope target")
+@router.post(
+    "/plugins/{plugin_name}",
+    summary="Execute a recon plugin against an in-scope target",
+)
 async def execute_recon_plugin(
     project_id: str = Path(...),
     plugin_name: str = Path(...),
@@ -509,20 +573,43 @@ async def execute_recon_plugin(
 
     target = str(request.payload.get("target", "")).strip()
     if not target or any(char in target for char in "\r\n\x00"):
-        raise HTTPException(status_code=400, detail="Provide one IP address or domain as the scan target.")
+        raise HTTPException(
+            status_code=400,
+            detail="Provide one IP address or domain as the scan target.",
+        )
 
     # Scanning is permitted only when both the submitted target and project
     # scope are explicit. A target may be a single host, never a free-form flag.
-    scope_entries = [entry.strip() for entry in re.split(r"[,;\n]+", project.scope or "") if entry.strip()]
-    if not scope_entries or "*" in scope_entries or not is_target_in_scope(target, scope_entries):
-        raise HTTPException(status_code=403, detail="Target is not within this project's authorized scope.")
-    if any(is_target_in_scope(target, [entry]) for entry in re.split(r"[,;\n]+", project.out_of_scope or "") if entry.strip()):
-        raise HTTPException(status_code=403, detail="Target is explicitly excluded by this project's scope.")
+    scope_entries = [
+        entry.strip()
+        for entry in re.split(r"[,;\n]+", project.scope or "")
+        if entry.strip()
+    ]
+    if (
+        not scope_entries
+        or "*" in scope_entries
+        or not is_target_in_scope(target, scope_entries)
+    ):
+        raise HTTPException(
+            status_code=403,
+            detail="Target is not within this project's authorized scope.",
+        )
+    if any(
+        is_target_in_scope(target, [entry])
+        for entry in re.split(r"[,;\n]+", project.out_of_scope or "")
+        if entry.strip()
+    ):
+        raise HTTPException(
+            status_code=403,
+            detail="Target is explicitly excluded by this project's scope.",
+        )
 
     plugin_registry.load_all()
     plugin = plugin_registry.get_plugin(plugin_name_lower)
     if not plugin:
-        raise HTTPException(status_code=404, detail=f"Plugin '{plugin_name}' not found in registry")
+        raise HTTPException(
+            status_code=404, detail=f"Plugin '{plugin_name}' not found in registry"
+        )
 
     try:
         # Build execution payload.
@@ -536,7 +623,9 @@ async def execute_recon_plugin(
         result = await asyncio.to_thread(plugin.execute, exec_payload)
 
         if result.get("status") == "error":
-            raise HTTPException(status_code=502, detail=result.get("error", "Plugin execution failed"))
+            raise HTTPException(
+                status_code=502, detail=result.get("error", "Plugin execution failed")
+            )
 
         # ── nmap: persist Host/Service rows to the database ──────────────────
         if plugin_name_lower in _HOST_DISCOVERY_PLUGINS:
@@ -547,14 +636,18 @@ async def execute_recon_plugin(
                 ip = host_data.get("ip")
                 if not ip:
                     continue
-                host_result = await db.execute(select(Host).where(Host.project_id == project.id, Host.ip == ip))
+                host_result = await db.execute(
+                    select(Host).where(Host.project_id == project.id, Host.ip == ip)
+                )
                 host = host_result.scalars().first()
                 if host is None:
                     host = Host(
                         project_id=project.id,
                         ip=ip,
                         hostname=host_data.get("hostname"),
-                        hostnames=[host_data["hostname"]] if host_data.get("hostname") else [],
+                        hostnames=[host_data["hostname"]]
+                        if host_data.get("hostname")
+                        else [],
                     )
                     db.add(host)
                     hosts_created += 1
@@ -586,7 +679,11 @@ async def execute_recon_plugin(
                         "state": "open",
                     }
                     if service is None:
-                        db.add(Service(host_id=host.id, port=port, protocol=protocol, **values))
+                        db.add(
+                            Service(
+                                host_id=host.id, port=port, protocol=protocol, **values
+                            )
+                        )
                         services_created += 1
                     else:
                         for key, value in values.items():
@@ -599,12 +696,16 @@ async def execute_recon_plugin(
             try:
                 if affected_host_ids:
                     synced_hosts = (
-                        await db.execute(
-                            select(Host)
-                            .where(Host.id.in_(affected_host_ids))
-                            .options(selectinload(Host.services))
+                        (
+                            await db.execute(
+                                select(Host)
+                                .where(Host.id.in_(affected_host_ids))
+                                .options(selectinload(Host.services))
+                            )
                         )
-                    ).scalars().all()
+                        .scalars()
+                        .all()
+                    )
                     for host in synced_hosts:
                         await sync_host_with_services(db, project.id, host)
                     await db.commit()
@@ -637,5 +738,6 @@ async def execute_recon_plugin(
     except Exception as e:
         await db.rollback()
         logger.error(f"Plugin {plugin_name} execution failed: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Internal server error during plugin execution")
-
+        raise HTTPException(
+            status_code=500, detail="Internal server error during plugin execution"
+        )

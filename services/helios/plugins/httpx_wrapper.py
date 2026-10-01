@@ -50,7 +50,8 @@ class HttpxPlugin(BasePlugin):
 
         cmd = [
             "httpx",
-            "-u", target,
+            "-u",
+            target,
             "-json",
             "-silent",
             "-title",
@@ -59,7 +60,8 @@ class HttpxPlugin(BasePlugin):
             "-content-length",
             "-web-server",
             "-no-color",
-            "-timeout", "10",   # per-request timeout in seconds
+            "-timeout",
+            "10",  # per-request timeout in seconds
         ]
 
         logger.info(f"[httpx] Probing {target!r}")
@@ -85,15 +87,17 @@ class HttpxPlugin(BasePlugin):
     def _parse_output(self, stdout: str) -> List[Dict[str, Any]]:
         results: List[Dict[str, Any]] = []
         for record in self.parse_jsonlines(stdout):
-            results.append({
-                "url": record.get("url", ""),
-                "status_code": record.get("status-code", 0),
-                "title": record.get("title", ""),
-                "webserver": record.get("webserver", ""),
-                "content_length": record.get("content-length", 0),
-                "technologies": record.get("tech", []),
-                "ip": record.get("host", ""),
-                "cdn": record.get("cdn", False),
-                "tls": record.get("tls", {}),
-            })
+            results.append(
+                {
+                    "url": record.get("url", ""),
+                    "status_code": record.get("status-code", 0),
+                    "title": record.get("title", ""),
+                    "webserver": record.get("webserver", ""),
+                    "content_length": record.get("content-length", 0),
+                    "technologies": record.get("tech", []),
+                    "ip": record.get("host", ""),
+                    "cdn": record.get("cdn", False),
+                    "tls": record.get("tls", {}),
+                }
+            )
         return results

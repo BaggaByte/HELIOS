@@ -123,7 +123,8 @@ async def upsert_edge(
 async def sync_host(db: AsyncSession, project_id: str, host) -> KnowledgeNode:
     """Upsert a Host row as a graph node."""
     return await upsert_node(
-        db, project_id,
+        db,
+        project_id,
         node_type="host",
         label=host.hostname or host.ip,
         key=f"host:{host.id}",
@@ -140,7 +141,8 @@ async def sync_service(
         label += f" ({service.product} {service.version or ''})".rstrip()
 
     service_node = await upsert_node(
-        db, project_id,
+        db,
+        project_id,
         node_type="service",
         label=label,
         key=f"service:{service.id}",
@@ -169,13 +171,16 @@ async def sync_finding(
     to a root Project node.
     """
     finding_node = await upsert_node(
-        db, project_id,
+        db,
+        project_id,
         node_type="finding",
         label=finding.title,
         key=f"finding:{finding.id}",
         properties={
             "severity": finding.severity,
-            "cvss_score": float(finding.cvss_score) if finding.cvss_score is not None else None,
+            "cvss_score": float(finding.cvss_score)
+            if finding.cvss_score is not None
+            else None,
             "cwe_id": finding.cwe_id,
             "ref_id": finding.id,
         },
@@ -183,26 +188,36 @@ async def sync_finding(
 
     if service_node is not None:
         await upsert_edge(
-            db, project_id, service_node, finding_node,
+            db,
+            project_id,
+            service_node,
+            finding_node,
             relation="HAS_FINDING",
             properties={"severity": finding.severity},
         )
     elif host_node is not None:
         await upsert_edge(
-            db, project_id, host_node, finding_node,
+            db,
+            project_id,
+            host_node,
+            finding_node,
             relation="HAS_FINDING",
             properties={"severity": finding.severity},
         )
     else:
         # Fallback to prevent orphaned nodes in the graph
         project_node = await upsert_node(
-            db, project_id,
+            db,
+            project_id,
             node_type="project",
             label="Project Context",
             key=f"project:{project_id}",
         )
         await upsert_edge(
-            db, project_id, project_node, finding_node,
+            db,
+            project_id,
+            project_node,
+            finding_node,
             relation="HAS_FINDING",
             properties={"severity": finding.severity},
         )
@@ -210,7 +225,9 @@ async def sync_finding(
     return finding_node
 
 
-async def sync_host_with_services(db: AsyncSession, project_id: str, host) -> KnowledgeNode:
+async def sync_host_with_services(
+    db: AsyncSession, project_id: str, host
+) -> KnowledgeNode:
     """Convenience: sync a host and every service currently loaded on it."""
     host_node = await sync_host(db, project_id, host)
     for service in getattr(host, "services", None) or []:

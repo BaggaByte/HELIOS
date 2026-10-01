@@ -38,14 +38,20 @@ def calculate_project_risk(findings: List[Any]) -> Dict[str, Any]:
     """
     if not findings:
         return {
-            "level":    "Low",
-            "score":    0.0,
+            "level": "Low",
+            "score": 0.0,
             "max_cvss": 0.0,
             "avg_cvss": 0.0,
-            "counts":   {"critical": 0, "high": 0, "medium": 0, "low": 0, "info": 0},
+            "counts": {"critical": 0, "high": 0, "medium": 0, "low": 0, "info": 0},
         }
 
-    counts: Dict[str, int] = {"critical": 0, "high": 0, "medium": 0, "low": 0, "info": 0}
+    counts: Dict[str, int] = {
+        "critical": 0,
+        "high": 0,
+        "medium": 0,
+        "low": 0,
+        "info": 0,
+    }
     max_cvss = 0.0
     total_cvss = 0.0
     cvss_count = 0
@@ -80,13 +86,13 @@ def calculate_project_risk(findings: List[Any]) -> Dict[str, Any]:
 
     # Distribution bonus: sum of weights of all findings beyond the first,
     # scaled so that 10 additional highs add at most +2.0 to the score.
-    weight_sum = sum(
-        _SEVERITY_WEIGHTS.get(s, 0.0) * n
-        for s, n in counts.items()
-    )
+    weight_sum = sum(_SEVERITY_WEIGHTS.get(s, 0.0) * n for s, n in counts.items())
     # Subtract the single heaviest finding already counted in base_score
     heaviest_weight = _SEVERITY_WEIGHTS.get(
-        next((s for s in ("critical", "high", "medium", "low", "info") if counts[s] > 0), "info"),
+        next(
+            (s for s in ("critical", "high", "medium", "low", "info") if counts[s] > 0),
+            "info",
+        ),
         0.0,
     )
     distribution_bonus = min((weight_sum - heaviest_weight) / 50.0 * 2.0, 2.0)
@@ -105,9 +111,9 @@ def calculate_project_risk(findings: List[Any]) -> Dict[str, Any]:
         level = "Low"
 
     return {
-        "level":    level,
-        "score":    score,
+        "level": level,
+        "score": score,
         "max_cvss": round(max_cvss, 1),
         "avg_cvss": round(avg_cvss, 1),
-        "counts":   counts,
+        "counts": counts,
     }

@@ -32,13 +32,15 @@ async def ingest_zap(
         raise HTTPException(status_code=400, detail="Must be an XML file")
 
     project = await get_project_or_404(project_id, db)
-    
+
     MAX_FILE_SIZE = 50 * 1024 * 1024
     content = bytearray()
     while chunk := await file.read(1024 * 1024):
         content.extend(chunk)
         if len(content) > MAX_FILE_SIZE:
-            raise HTTPException(status_code=413, detail="File too large. Maximum size is 50MB.")
+            raise HTTPException(
+                status_code=413, detail="File too large. Maximum size is 50MB."
+            )
     content_bytes = bytes(content)
 
     try:
@@ -110,7 +112,9 @@ async def ingest_zap(
     except Exception as e:
         logger.error(f"Failed to ingest ZAP data: {e}")
         await db.rollback()
-        raise HTTPException(status_code=500, detail="Internal server error during import")
+        raise HTTPException(
+            status_code=500, detail="Internal server error during import"
+        )
 
 
 @router.get("/findings", summary="List all web security findings for a project")

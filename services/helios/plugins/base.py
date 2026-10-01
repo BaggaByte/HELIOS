@@ -107,9 +107,7 @@ class BasePlugin(ABC):
             stderr = proc.stderr[:MAX_OUTPUT_BYTES].decode("utf-8", errors="replace")
             return proc.returncode, stdout, stderr
         except subprocess.TimeoutExpired:
-            raise PluginError(
-                f"Command timed out after {timeout}s: {' '.join(cmd)}"
-            )
+            raise PluginError(f"Command timed out after {timeout}s: {' '.join(cmd)}")
         except FileNotFoundError:
             raise PluginError(
                 f"Binary not found: {cmd[0]!r}. "
@@ -159,15 +157,15 @@ class BasePlugin(ABC):
 
     _SEVERITY_MAP: Dict[str, str] = {
         "critical": "critical",
-        "crit":     "critical",
-        "high":     "high",
-        "medium":   "medium",
-        "med":      "medium",
-        "low":      "low",
-        "info":     "info",
+        "crit": "critical",
+        "high": "high",
+        "medium": "medium",
+        "med": "medium",
+        "low": "low",
+        "info": "info",
         "informational": "info",
-        "unknown":  "info",
-        "":         "info",
+        "unknown": "info",
+        "": "info",
     }
 
     @classmethod

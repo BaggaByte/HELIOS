@@ -19,6 +19,7 @@ router = APIRouter()
 # Schemas
 # ──────────────────────────────────────────────────────────────
 
+
 class NodeCreate(BaseModel):
     type: str
     label: str
@@ -37,6 +38,7 @@ class EdgeCreate(BaseModel):
 # Helpers
 # ──────────────────────────────────────────────────────────────
 
+
 async def get_project_or_404(project_id: str, db: AsyncSession) -> Project:
     result = await db.execute(select(Project).where(Project.id == project_id))
     project = result.scalars().first()
@@ -48,6 +50,7 @@ async def get_project_or_404(project_id: str, db: AsyncSession) -> Project:
 # ──────────────────────────────────────────────────────────────
 # Endpoints
 # ──────────────────────────────────────────────────────────────
+
 
 @router.get("/", summary="Retrieve full knowledge graph for a project")
 async def get_full_graph(
@@ -85,7 +88,9 @@ async def get_full_graph(
                     "target": str(e.target_id),
                     "relation": e.relation,
                     "properties": e.properties or {},
-                    "confidence": float(e.confidence) if e.confidence is not None else 1.0,
+                    "confidence": float(e.confidence)
+                    if e.confidence is not None
+                    else 1.0,
                 }
                 for e in edges
             ],
@@ -93,7 +98,11 @@ async def get_full_graph(
     }
 
 
-@router.post("/nodes", status_code=status.HTTP_201_CREATED, summary="Create a knowledge graph node")
+@router.post(
+    "/nodes",
+    status_code=status.HTTP_201_CREATED,
+    summary="Create a knowledge graph node",
+)
 async def create_node(
     project_id: str = Path(...),
     body: NodeCreate = ...,
@@ -117,7 +126,11 @@ async def create_node(
     }
 
 
-@router.post("/edges", status_code=status.HTTP_201_CREATED, summary="Create a knowledge graph edge")
+@router.post(
+    "/edges",
+    status_code=status.HTTP_201_CREATED,
+    summary="Create a knowledge graph edge",
+)
 async def create_edge(
     project_id: str = Path(...),
     body: EdgeCreate = ...,
@@ -136,7 +149,9 @@ async def create_edge(
             )
         )
         if not r.scalars().first():
-            raise HTTPException(status_code=404, detail=f"Node {node_id} not found in project")
+            raise HTTPException(
+                status_code=404, detail=f"Node {node_id} not found in project"
+            )
 
     edge = KnowledgeEdge(
         project_id=project_id,
@@ -205,7 +220,9 @@ async def get_neighbors(
     }
 
 
-@router.delete("/nodes/{node_id}", status_code=204, summary="Delete a node and its edges")
+@router.delete(
+    "/nodes/{node_id}", status_code=204, summary="Delete a node and its edges"
+)
 async def delete_node(
     project_id: str = Path(...),
     node_id: str = Path(...),

@@ -53,7 +53,7 @@ class MasscanPlugin(BasePlugin):
             return self._not_available_error()
 
         ports: str = payload.get("ports", "0-65535")
-        rate: int = int(payload.get("rate", 1000))   # packets/sec — keep low
+        rate: int = int(payload.get("rate", 1000))  # packets/sec — keep low
         timeout: int = int(payload.get("timeout", 600))
 
         output_file = self.temp_json_output_file(suffix=".json")
@@ -61,9 +61,12 @@ class MasscanPlugin(BasePlugin):
             cmd = [
                 "masscan",
                 target,
-                "-p", ports,
-                "--rate", str(rate),
-                "-oJ", output_file,
+                "-p",
+                ports,
+                "--rate",
+                str(rate),
+                "-oJ",
+                output_file,
             ]
 
             logger.info(f"[masscan] Scanning {target!r} ports={ports} rate={rate}")
@@ -74,7 +77,9 @@ class MasscanPlugin(BasePlugin):
                 return self._plugin_error(exc)
 
             if returncode != 0:
-                logger.warning(f"[masscan] Exited with code {returncode}: {stderr[:500]}")
+                logger.warning(
+                    f"[masscan] Exited with code {returncode}: {stderr[:500]}"
+                )
 
             open_ports = self._parse_output_file(output_file)
 
@@ -111,11 +116,13 @@ class MasscanPlugin(BasePlugin):
         for record in self.parse_jsonlines(raw):
             ip = record.get("ip", "")
             for port_info in record.get("ports", []):
-                results.append({
-                    "ip": ip,
-                    "port": port_info.get("port", 0),
-                    "protocol": port_info.get("proto", "tcp"),
-                    "status": port_info.get("status", "open"),
-                    "timestamp": record.get("timestamp", ""),
-                })
+                results.append(
+                    {
+                        "ip": ip,
+                        "port": port_info.get("port", 0),
+                        "protocol": port_info.get("proto", "tcp"),
+                        "status": port_info.get("status", "open"),
+                        "timestamp": record.get("timestamp", ""),
+                    }
+                )
         return results

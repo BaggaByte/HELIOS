@@ -46,13 +46,13 @@ class WhatwebPlugin(BasePlugin):
             return self._not_available_error()
 
         timeout: int = int(payload.get("timeout", 120))
-        aggression: int = int(payload.get("aggression", 1))   # 1=passive, 3=aggressive
+        aggression: int = int(payload.get("aggression", 1))  # 1=passive, 3=aggressive
 
         cmd = [
             "whatweb",
             target,
             f"--aggression={aggression}",
-            "--log-json=-",    # JSON to stdout
+            "--log-json=-",  # JSON to stdout
             "--quiet",
             "--no-errors",
             "--color=never",
@@ -91,14 +91,18 @@ class WhatwebPlugin(BasePlugin):
                 if isinstance(plugin_data, dict):
                     version_list = plugin_data.get("version", [])
                     version = ", ".join(version_list) if version_list else ""
-                tech_details.append({
-                    "name": plugin_name,
-                    "version": version,
-                })
-            results.append({
-                "url": target_url,
-                "http_status": http_status,
-                "technologies": tech_names,
-                "details": tech_details,
-            })
+                tech_details.append(
+                    {
+                        "name": plugin_name,
+                        "version": version,
+                    }
+                )
+            results.append(
+                {
+                    "url": target_url,
+                    "http_status": http_status,
+                    "technologies": tech_names,
+                    "details": tech_details,
+                }
+            )
         return results

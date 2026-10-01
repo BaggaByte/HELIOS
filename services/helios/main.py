@@ -6,9 +6,20 @@ from fastapi.responses import JSONResponse
 
 from helios.config import get_settings
 from helios.api.v1 import (
-    chat, files, recon, web_security, source_code,
-    logs, malware, knowledge_graph, evidence,
-    reports, js_intel, system, projects, search,
+    chat,
+    files,
+    recon,
+    web_security,
+    source_code,
+    logs,
+    malware,
+    knowledge_graph,
+    evidence,
+    reports,
+    js_intel,
+    system,
+    projects,
+    search,
 )
 from helios.core.chat.engine import ChatEngine
 from helios.infrastructure.database import init_db
@@ -53,6 +64,7 @@ cors_origins = settings.CORS_ORIGINS
 
 from starlette.middleware.base import BaseHTTPMiddleware
 
+
 class ContentLengthLimitMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
         content_length = request.headers.get("content-length")
@@ -61,16 +73,21 @@ class ContentLengthLimitMiddleware(BaseHTTPMiddleware):
                 if int(content_length) > settings.MAX_UPLOAD_SIZE:
                     return JSONResponse(
                         status_code=413,
-                        content={"detail": f"Payload too large. Maximum allowed size is {settings.MAX_UPLOAD_SIZE} bytes."}
+                        content={
+                            "detail": f"Payload too large. Maximum allowed size is {settings.MAX_UPLOAD_SIZE} bytes."
+                        },
                     )
             except ValueError:
-                return JSONResponse(status_code=400, content={"detail": "Invalid Content-Length header."})
-        
+                return JSONResponse(
+                    status_code=400,
+                    content={"detail": "Invalid Content-Length header."},
+                )
+
         # Enforce stream limits dynamically for chunked/streamed uploads bypassing Content-Length
         body_size = 0
         receive_ = request.receive
         request.state.payload_too_large = False
-        
+
         async def receive_with_limit():
             nonlocal body_size
             message = await receive_()
@@ -80,25 +97,30 @@ class ContentLengthLimitMiddleware(BaseHTTPMiddleware):
                     request.state.payload_too_large = True
                     raise RuntimeError("PAYLOAD_TOO_LARGE")
             return message
-            
+
         request._receive = receive_with_limit
-        
+
         try:
             response = await call_next(request)
         except Exception as e:
             if getattr(request.state, "payload_too_large", False):
                 return JSONResponse(
                     status_code=413,
-                    content={"detail": f"Payload stream exceeded maximum allowed size of {settings.MAX_UPLOAD_SIZE} bytes."}
+                    content={
+                        "detail": f"Payload stream exceeded maximum allowed size of {settings.MAX_UPLOAD_SIZE} bytes."
+                    },
                 )
             raise
-            
+
         if getattr(request.state, "payload_too_large", False):
             return JSONResponse(
                 status_code=413,
-                content={"detail": f"Payload stream exceeded maximum allowed size of {settings.MAX_UPLOAD_SIZE} bytes."}
+                content={
+                    "detail": f"Payload stream exceeded maximum allowed size of {settings.MAX_UPLOAD_SIZE} bytes."
+                },
             )
         return response
+
 
 app.add_middleware(ContentLengthLimitMiddleware)
 
@@ -124,12 +146,21 @@ async def global_exception_handler(request: Request, exc: Exception):
 
 
 from fastapi import Depends
-from helios.api.v1.auth import router as auth_router, get_current_user, require_project_access
+from helios.api.v1.auth import (
+    router as auth_router,
+    get_current_user,
+    require_project_access,
+)
 
 # ── Non-project-scoped routes ────────────────────────────────────────────────
-app.include_router(auth_router,     prefix="/api/v1/auth",     tags=["auth"])
-app.include_router(system.router,   prefix="/api/v1/system",   tags=["system"])
-app.include_router(projects.router, prefix="/api/v1/projects", tags=["projects"], dependencies=[Depends(get_current_user)])
+app.include_router(auth_router, prefix="/api/v1/auth", tags=["auth"])
+app.include_router(system.router, prefix="/api/v1/system", tags=["system"])
+app.include_router(
+    projects.router,
+    prefix="/api/v1/projects",
+    tags=["projects"],
+    dependencies=[Depends(get_current_user)],
+)
 
 # Chat has its own WebSocket endpoint — kept flat so ws:// URLs stay simple
 app.include_router(chat.router, prefix="/api/v1/chat", tags=["chat"])
@@ -138,30 +169,59 @@ app.include_router(chat.router, prefix="/api/v1/chat", tags=["chat"])
 _P = "/api/v1/projects/{project_id}"
 _D = [Depends(require_project_access)]
 
-app.include_router(recon.router,           prefix=f"{_P}/recon",           tags=["recon"], dependencies=_D)
-app.include_router(web_security.router,    prefix=f"{_P}/web-security",    tags=["web-security"], dependencies=_D)
-app.include_router(source_code.router,     prefix=f"{_P}/source-code",     tags=["source-code"], dependencies=_D)
-app.include_router(logs.router,            prefix=f"{_P}/logs",            tags=["logs"], dependencies=_D)
-app.include_router(malware.router,         prefix=f"{_P}/malware",         tags=["malware"], dependencies=_D)
-app.include_router(knowledge_graph.router, prefix=f"{_P}/graph",           tags=["knowledge-graph"], dependencies=_D)
-app.include_router(evidence.router,        prefix=f"{_P}/evidence",        tags=["evidence"], dependencies=_D)
-app.include_router(reports.router,         prefix=f"{_P}/reports",         tags=["reports"], dependencies=_D)
-app.include_router(js_intel.router,        prefix=f"{_P}/js-intel",        tags=["js-intel"], dependencies=_D)
-app.include_router(files.router,           prefix=f"{_P}/files",           tags=["files"], dependencies=_D)
-app.include_router(search.router,          prefix=f"{_P}/search",          tags=["search"], dependencies=_D)
+app.include_router(recon.router, prefix=f"{_P}/recon", tags=["recon"], dependencies=_D)
+app.include_router(
+    web_security.router,
+    prefix=f"{_P}/web-security",
+    tags=["web-security"],
+    dependencies=_D,
+)
+app.include_router(
+    source_code.router,
+    prefix=f"{_P}/source-code",
+    tags=["source-code"],
+    dependencies=_D,
+)
+app.include_router(logs.router, prefix=f"{_P}/logs", tags=["logs"], dependencies=_D)
+app.include_router(
+    malware.router, prefix=f"{_P}/malware", tags=["malware"], dependencies=_D
+)
+app.include_router(
+    knowledge_graph.router,
+    prefix=f"{_P}/graph",
+    tags=["knowledge-graph"],
+    dependencies=_D,
+)
+app.include_router(
+    evidence.router, prefix=f"{_P}/evidence", tags=["evidence"], dependencies=_D
+)
+app.include_router(
+    reports.router, prefix=f"{_P}/reports", tags=["reports"], dependencies=_D
+)
+app.include_router(
+    js_intel.router, prefix=f"{_P}/js-intel", tags=["js-intel"], dependencies=_D
+)
+app.include_router(files.router, prefix=f"{_P}/files", tags=["files"], dependencies=_D)
+app.include_router(
+    search.router, prefix=f"{_P}/search", tags=["search"], dependencies=_D
+)
 
 if __name__ == "__main__":
     import uvicorn
     import sys
     import argparse
-    
+
     # Check if running as packaged executable
-    if getattr(sys, 'frozen', False):
+    if getattr(sys, "frozen", False):
         parser = argparse.ArgumentParser(description="HELIOS Backend Sidecar")
-        parser.add_argument("--port", type=int, default=8000, help="Port to bind the sidecar to")
+        parser.add_argument(
+            "--port", type=int, default=8000, help="Port to bind the sidecar to"
+        )
         args, _ = parser.parse_known_args()
-        
+
         logger.info(f"Starting bundled FastAPI app on port {args.port}...")
         uvicorn.run(app, host="127.0.0.1", port=args.port)
     else:
-        logger.info("Running from source. Use 'uvicorn helios.main:app' or 'uv run fastapi dev helios/main.py' to start.")
+        logger.info(
+            "Running from source. Use 'uvicorn helios.main:app' or 'uv run fastapi dev helios/main.py' to start."
+        )

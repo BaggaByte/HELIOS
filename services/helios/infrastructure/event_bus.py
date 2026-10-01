@@ -4,6 +4,7 @@ from typing import Dict, List, Callable, Any
 
 logger = logging.getLogger(__name__)
 
+
 # MVP Scaffold: In-memory Event Bus for local-first operations without Redis Pub/Sub
 class EventBus:
     def __init__(self):
@@ -34,5 +35,6 @@ class EventBus:
                 callback(message)
         except Exception as e:
             logger.error(f"EventBus Callback Error: {e}")
+
 
 event_bus = EventBus()

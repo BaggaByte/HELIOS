@@ -13,24 +13,24 @@ from helios.core.logs.timeline_builder import parse_log_file
 # ── Apache parser ─────────────────────────────────────────────────────────────
 
 APACHE_200 = (
-    '127.0.0.1 - frank [10/Oct/2000:13:55:36 -0700] '
+    "127.0.0.1 - frank [10/Oct/2000:13:55:36 -0700] "
     '"GET /apache_pb.gif HTTP/1.0" 200 2326 '
     '"http://www.example.com/start.html" '
     '"Mozilla/4.0 (compatible; MSIE 5.5; Windows NT 5.1)"'
 )
 
 APACHE_404 = (
-    '10.0.0.5 - - [15/Jan/2024:08:23:11 +0000] '
+    "10.0.0.5 - - [15/Jan/2024:08:23:11 +0000] "
     '"GET /admin HTTP/1.1" 404 512 "-" "curl/7.88.1"'
 )
 
 APACHE_500 = (
-    '10.0.0.5 - - [15/Jan/2024:08:23:12 +0000] '
+    "10.0.0.5 - - [15/Jan/2024:08:23:12 +0000] "
     '"POST /api/data HTTP/1.1" 500 0 "-" "python-requests/2.31.0"'
 )
 
 APACHE_SQLI = (
-    '10.0.0.99 - - [15/Jan/2024:09:00:00 +0000] '
+    "10.0.0.99 - - [15/Jan/2024:09:00:00 +0000] "
     '"GET /search?q=1+UNION+SELECT+1,2,3-- HTTP/1.1" 400 0 "-" "sqlmap/1.7"'
 )
 
@@ -92,24 +92,24 @@ class TestApacheParser:
 # ── Suricata parser ───────────────────────────────────────────────────────────
 
 SURICATA_P1 = (
-    '10/11/2023-14:32:01.123456  [**] [1:2010935:2] '
-    'ET EXPLOIT Possible SQL Injection [**] '
-    '[Classification: Web Application Attack] [Priority: 1] '
-    '{TCP} 192.168.1.100:54321 -> 10.0.0.5:80'
+    "10/11/2023-14:32:01.123456  [**] [1:2010935:2] "
+    "ET EXPLOIT Possible SQL Injection [**] "
+    "[Classification: Web Application Attack] [Priority: 1] "
+    "{TCP} 192.168.1.100:54321 -> 10.0.0.5:80"
 )
 
 SURICATA_P2 = (
-    '10/11/2023-14:33:00.000001  [**] [1:2001219:20] '
-    'ET SCAN Potential SSH Scan [**] '
-    '[Priority: 2] '
-    '{TCP} 10.10.10.10:12345 -> 192.168.1.1:22'
+    "10/11/2023-14:33:00.000001  [**] [1:2001219:20] "
+    "ET SCAN Potential SSH Scan [**] "
+    "[Priority: 2] "
+    "{TCP} 10.10.10.10:12345 -> 192.168.1.1:22"
 )
 
 SURICATA_P3 = (
-    '10/11/2023-14:34:00.000001  [**] [1:2009358:3] '
-    'ET POLICY PE EXE or DLL Windows file download [**] '
-    '[Priority: 3] '
-    '{TCP} 172.16.0.5:443 -> 10.0.0.20:49152'
+    "10/11/2023-14:34:00.000001  [**] [1:2009358:3] "
+    "ET POLICY PE EXE or DLL Windows file download [**] "
+    "[Priority: 3] "
+    "{TCP} 172.16.0.5:443 -> 10.0.0.20:49152"
 )
 
 
@@ -162,6 +162,7 @@ class TestSuricataParser:
 
 
 # ── Timeline builder ──────────────────────────────────────────────────────────
+
 
 class TestTimelineBuilder:
     def test_apache_log_file_parsed(self):

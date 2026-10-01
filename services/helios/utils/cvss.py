@@ -73,7 +73,9 @@ def parse_vector(vector: str) -> Dict[str, str]:
 
     missing = [m for m in _REQUIRED_METRICS if m not in metrics]
     if missing:
-        raise ValueError(f"CVSS vector missing required metric(s): {', '.join(missing)}")
+        raise ValueError(
+            f"CVSS vector missing required metric(s): {', '.join(missing)}"
+        )
 
     return metrics
 
@@ -121,4 +123,6 @@ def calculate_base_score(vector: str) -> CVSSResult:
         base_score = _roundup(min(impact + exploitability, 10))
 
     base_score = round(base_score, 1)
-    return CVSSResult(base_score=base_score, severity=severity_from_score(base_score), vector=vector)
+    return CVSSResult(
+        base_score=base_score, severity=severity_from_score(base_score), vector=vector
+    )

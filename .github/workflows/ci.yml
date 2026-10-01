@@ -50,6 +50,8 @@ jobs:
         continue-on-error: true   # mypy warnings don't block CI yet
 
       - name: Run tests
+        env:
+          PYTHONPATH: .
         run: uv run pytest tests/ -v --tb=short
 
   # ── Frontend: type-check + build ─────────────────────────────

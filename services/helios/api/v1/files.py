@@ -18,23 +18,28 @@ _vector_store: VectorStore | None = None
 
 MAX_FILE_SIZE_BYTES = 50 * 1024 * 1024  # 50 MB
 
+
 def _get_vector_store() -> VectorStore:
     global _vector_store
     if _vector_store is None:
         _vector_store = VectorStore()
     return _vector_store
 
+
 @router.post("/upload", summary="Upload a file to the project context")
 async def upload_file(
     project_id: str = Path(...),
     file: UploadFile = File(...),
-    session: AsyncSession = Depends(get_db_session)
+    session: AsyncSession = Depends(get_db_session),
 ):
     if not file.filename:
         raise HTTPException(status_code=400, detail="No file provided")
-        
+
     if file.size and file.size > MAX_FILE_SIZE_BYTES:
-        raise HTTPException(status_code=413, detail=f"File too large. Maximum size is {MAX_FILE_SIZE_BYTES} bytes.")
+        raise HTTPException(
+            status_code=413,
+            detail=f"File too large. Maximum size is {MAX_FILE_SIZE_BYTES} bytes.",
+        )
 
     try:
         content = bytearray()
@@ -45,7 +50,10 @@ async def upload_file(
                 break
             content.extend(chunk)
             if len(content) > MAX_FILE_SIZE_BYTES:
-                raise HTTPException(status_code=413, detail=f"File too large. Maximum size is {MAX_FILE_SIZE_BYTES} bytes.")
+                raise HTTPException(
+                    status_code=413,
+                    detail=f"File too large. Maximum size is {MAX_FILE_SIZE_BYTES} bytes.",
+                )
         content_bytes = bytes(content)
         storage_id = await _storage.save_file(content_bytes)
 
@@ -59,9 +67,13 @@ async def upload_file(
         vs.add_finding(
             id=storage_id,
             text=f"Project: {project_id}\nFile: {file.filename}\n\n{content_str}",
-            metadata={"filename": file.filename, "type": "uploaded_file", "project_id": project_id},
+            metadata={
+                "filename": file.filename,
+                "type": "uploaded_file",
+                "project_id": project_id,
+            },
         )
-        
+
         try:
             # Save metadata to DB
             pf = ProjectFile(
@@ -69,7 +81,7 @@ async def upload_file(
                 filename=file.filename,
                 storage_id=storage_id,
                 size_bytes=len(content),
-                mime_type=file.content_type
+                mime_type=file.content_type,
             )
             session.add(pf)
             await session.flush()
@@ -94,8 +106,7 @@ async def upload_file(
 
 @router.get("/", summary="List uploaded files for a project")
 async def list_files(
-    project_id: str = Path(...),
-    session: AsyncSession = Depends(get_db_session)
+    project_id: str = Path(...), session: AsyncSession = Depends(get_db_session)
 ):
     """Returns files uploaded for this project."""
     try:
@@ -103,7 +114,7 @@ async def list_files(
             select(ProjectFile).where(ProjectFile.project_id == project_id)
         )
         files = result.scalars().all()
-        
+
         return {
             "files": [
                 {
@@ -111,7 +122,7 @@ async def list_files(
                     "filename": f.filename,
                     "size_bytes": f.size_bytes,
                     "mime_type": f.mime_type,
-                    "created_at": f.created_at
+                    "created_at": f.created_at,
                 }
                 for f in files
             ]

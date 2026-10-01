@@ -14,6 +14,7 @@ logger = logging.getLogger(__name__)
 # Data models
 # ──────────────────────────────────────────────────────────────
 
+
 @dataclass
 class Instance:
     uri: str
@@ -38,9 +39,9 @@ class Finding:
     title: str
     plugin_id: Optional[str] = None
     alert_ref: Optional[str] = None
-    severity: str = "info"          # info | low | medium | high | critical
+    severity: str = "info"  # info | low | medium | high | critical
     risk_code: int = 0
-    confidence: str = "low"         # low | medium | high | confirmed
+    confidence: str = "low"  # low | medium | high | confirmed
     confidence_code: int = 1
     description: str = ""
     solution: str = ""
@@ -83,7 +84,7 @@ RISK_MAP = {
     "1": ("low", 1),
     "2": ("medium", 2),
     "3": ("high", 3),
-    "4": ("critical", 4),          # some ZAP versions / plugins use 4
+    "4": ("critical", 4),  # some ZAP versions / plugins use 4
 }
 
 CONFIDENCE_MAP = {
@@ -115,7 +116,12 @@ def _parse_references(raw: Optional[str]) -> List[str]:
     if not raw:
         return []
     # ZAP frequently embeds <p>…</p> or just newlines / <br>
-    cleaned = raw.replace("<p>", "\n").replace("</p>", "\n").replace("<br>", "\n").replace("<br/>", "\n")
+    cleaned = (
+        raw.replace("<p>", "\n")
+        .replace("</p>", "\n")
+        .replace("<br>", "\n")
+        .replace("<br/>", "\n")
+    )
     cleaned = _TAG_RE.sub("", cleaned)
     refs = []
     for line in cleaned.splitlines():
@@ -148,6 +154,7 @@ def _extract_tags(alert_elem: ET.Element) -> List[str]:
 # ──────────────────────────────────────────────────────────────
 # Main parser
 # ──────────────────────────────────────────────────────────────
+
 
 def parse_zap_xml(
     xml_content: Union[bytes, str],
@@ -213,7 +220,9 @@ def parse_zap_xml(
         # If host missing, try to derive from site name / first URI later
         if not host and site_name:
             try:
-                parsed = urlparse(site_name if "://" in site_name else f"https://{site_name}")
+                parsed = urlparse(
+                    site_name if "://" in site_name else f"https://{site_name}"
+                )
                 host = parsed.hostname
                 if port is None and parsed.port:
                     port = parsed.port
@@ -222,11 +231,7 @@ def parse_zap_xml(
 
         for alert in site.findall(".//alertitem"):
             # ── Core fields ──────────────────────────────────
-            title = (
-                alert.findtext("name")
-                or alert.findtext("alert")
-                or "Unknown Alert"
-            )
+            title = alert.findtext("name") or alert.findtext("alert") or "Unknown Alert"
             title = _clean_text(title)
 
             plugin_id = alert.findtext("pluginid")
@@ -265,7 +270,9 @@ def parse_zap_xml(
             instances: List[Instance] = []
             instances_elem = alert.find("instances")
             if instances_elem is not None:
-                for inst in instances_elem.findall("instance")[:max_instances_per_alert]:
+                for inst in instances_elem.findall("instance")[
+                    :max_instances_per_alert
+                ]:
                     uri = inst.findtext("uri") or ""
                     method = (inst.findtext("method") or "GET").upper()
                     param = inst.findtext("param") or None
@@ -343,6 +350,7 @@ def parse_zap_xml(
 # ──────────────────────────────────────────────────────────────
 # Convenience helpers
 # ──────────────────────────────────────────────────────────────
+
 
 def filter_findings(
     findings: List[Dict[str, Any]],

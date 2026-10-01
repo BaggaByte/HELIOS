@@ -2,16 +2,19 @@ from pydantic import BaseModel, UUID4, Field
 from typing import Optional
 from datetime import datetime
 
+
 class TaskBase(BaseModel):
     title: str = Field(..., max_length=255)
     description: Optional[str] = None
-    status: str = Field(default="pending") # pending, in_progress, completed, blocked
-    priority: str = Field(default="medium") # low, medium, high, critical
+    status: str = Field(default="pending")  # pending, in_progress, completed, blocked
+    priority: str = Field(default="medium")  # low, medium, high, critical
     due_date: Optional[datetime] = None
     assigned_to: Optional[UUID4] = None
 
+
 class TaskCreate(TaskBase):
     project_id: UUID4
+
 
 class TaskUpdate(BaseModel):
     title: Optional[str] = Field(None, max_length=255)
@@ -21,6 +24,7 @@ class TaskUpdate(BaseModel):
     due_date: Optional[datetime] = None
     assigned_to: Optional[UUID4] = None
     completed_at: Optional[datetime] = None
+
 
 class TaskResponse(TaskBase):
     id: UUID4

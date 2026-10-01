@@ -40,7 +40,11 @@ async def create_report(
         raise HTTPException(status_code=500, detail="Internal server error")
 
 
-@router.get("/generate/download", response_class=PlainTextResponse, summary="Download report as plain text")
+@router.get(
+    "/generate/download",
+    response_class=PlainTextResponse,
+    summary="Download report as plain text",
+)
 async def download_report(
     project_id: str = Path(...),
     db: AsyncSession = Depends(get_db_session),
@@ -48,7 +52,9 @@ async def download_report(
     await get_project_or_404(project_id, db)
 
     try:
-        markdown_content = await generate_report(db, project_id, include_ai_summary=False)
+        markdown_content = await generate_report(
+            db, project_id, include_ai_summary=False
+        )
         return PlainTextResponse(content=markdown_content, media_type="text/markdown")
     except Exception as e:
         logger.error(f"Failed to download report: {e}")

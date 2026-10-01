@@ -46,12 +46,17 @@ class AmassPlugin(BasePlugin):
             return self._not_available_error()
 
         timeout: int = int(payload.get("timeout", 600))
-        passive: bool = payload.get("passive", True)   # default to passive — non-intrusive
+        passive: bool = payload.get(
+            "passive", True
+        )  # default to passive — non-intrusive
 
         cmd = [
-            "amass", "enum",
-            "-d", target,
-            "-json", "-",         # JSON-lines to stdout
+            "amass",
+            "enum",
+            "-d",
+            target,
+            "-json",
+            "-",  # JSON-lines to stdout
         ]
         if passive:
             cmd.append("-passive")
@@ -83,11 +88,13 @@ class AmassPlugin(BasePlugin):
             name = record.get("name", "")
             if name and name not in seen:
                 seen.add(name)
-                results.append({
-                    "name": name,
-                    "domain": record.get("domain", ""),
-                    "addresses": record.get("addresses", []),
-                    "tag": record.get("tag", ""),
-                    "sources": record.get("sources", []),
-                })
+                results.append(
+                    {
+                        "name": name,
+                        "domain": record.get("domain", ""),
+                        "addresses": record.get("addresses", []),
+                        "tag": record.get("tag", ""),
+                        "sources": record.get("sources", []),
+                    }
+                )
         return results

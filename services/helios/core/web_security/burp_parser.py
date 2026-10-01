@@ -1,6 +1,7 @@
 from typing import Dict, Any, List
 import xml.etree.ElementTree as ET
 
+
 def parse_burp_xml(xml_content: str) -> List[Dict[str, Any]]:
     """
     Parses a Burp Suite XML report and extracts issues.
@@ -14,21 +15,23 @@ def parse_burp_xml(xml_content: str) -> List[Dict[str, Any]]:
             severity_text = issue.findtext("severity", default="Information").lower()
             confidence = issue.findtext("confidence", default="Certain").lower()
             remediation = issue.findtext("remediationBackground", default="")
-            
+
             # Map Burp severity to our format
             severity = "info"
             if severity_text in ["high", "medium", "low"]:
                 severity = severity_text
-                
-            findings.append({
-                "title": title,
-                "description": desc,
-                "severity": severity,
-                "confidence": confidence,
-                "remediation": remediation,
-                "status": "observed",
-                "cwe_id": None
-            })
+
+            findings.append(
+                {
+                    "title": title,
+                    "description": desc,
+                    "severity": severity,
+                    "confidence": confidence,
+                    "remediation": remediation,
+                    "status": "observed",
+                    "cwe_id": None,
+                }
+            )
     except Exception:
         pass
     return findings

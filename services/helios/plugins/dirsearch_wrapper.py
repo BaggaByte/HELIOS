@@ -49,7 +49,9 @@ class DirsearchPlugin(BasePlugin):
             return self._not_available_error()
 
         wordlist: str = payload.get("wordlist", "")
-        extensions: str = payload.get("extensions", "php,asp,aspx,jsp,html,js,json,txt,xml,bak,old")
+        extensions: str = payload.get(
+            "extensions", "php,asp,aspx,jsp,html,js,json,txt,xml,bak,old"
+        )
         threads: int = int(payload.get("threads", 25))
         timeout: int = int(payload.get("timeout", 300))
 
@@ -57,9 +59,12 @@ class DirsearchPlugin(BasePlugin):
         try:
             cmd = [
                 "dirsearch",
-                "-u", target,
-                "-e", extensions,
-                "-t", str(threads),
+                "-u",
+                target,
+                "-e",
+                extensions,
+                "-t",
+                str(threads),
                 "--format=json",
                 f"--output={output_file}",
                 "--quiet",
@@ -106,19 +111,27 @@ class DirsearchPlugin(BasePlugin):
         # results may be a dict of {url: [hit, ...]} or a flat list
         if isinstance(results, dict):
             for url, items in results.items():
-                for item in (items if isinstance(items, list) else [items]):
-                    hits.append({
-                        "url": item.get("url", url),
-                        "status_code": item.get("status", 0),
-                        "redirect": item.get("redirect", ""),
-                        "content_length": item.get("content-length", item.get("length", 0)),
-                    })
+                for item in items if isinstance(items, list) else [items]:
+                    hits.append(
+                        {
+                            "url": item.get("url", url),
+                            "status_code": item.get("status", 0),
+                            "redirect": item.get("redirect", ""),
+                            "content_length": item.get(
+                                "content-length", item.get("length", 0)
+                            ),
+                        }
+                    )
         elif isinstance(results, list):
             for item in results:
-                hits.append({
-                    "url": item.get("url", ""),
-                    "status_code": item.get("status", 0),
-                    "redirect": item.get("redirect", ""),
-                    "content_length": item.get("content-length", item.get("length", 0)),
-                })
+                hits.append(
+                    {
+                        "url": item.get("url", ""),
+                        "status_code": item.get("status", 0),
+                        "redirect": item.get("redirect", ""),
+                        "content_length": item.get(
+                            "content-length", item.get("length", 0)
+                        ),
+                    }
+                )
         return hits

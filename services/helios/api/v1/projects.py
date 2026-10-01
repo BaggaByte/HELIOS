@@ -17,6 +17,7 @@ router = APIRouter()
 # Schemas
 # ──────────────────────────────────────────────────────────────
 
+
 class ProjectCreate(BaseModel):
     name: str
     description: Optional[str] = None
@@ -36,10 +37,22 @@ class ProjectCreate(BaseModel):
     def validate_scope_entries(cls, value: Optional[str]) -> Optional[str]:
         if value is None or not value.strip():
             return None if value is None else ""
-        entries = [entry.strip() for entry in value.replace(";", ",").replace("\n", ",").split(",") if entry.strip()]
-        invalid = [entry for entry in entries if not (is_valid_ip(entry) or is_valid_cidr(entry) or is_valid_domain(entry))]
+        entries = [
+            entry.strip()
+            for entry in value.replace(";", ",").replace("\n", ",").split(",")
+            if entry.strip()
+        ]
+        invalid = [
+            entry
+            for entry in entries
+            if not (
+                is_valid_ip(entry) or is_valid_cidr(entry) or is_valid_domain(entry)
+            )
+        ]
         if invalid:
-            raise ValueError(f"Scope entries must be IP addresses, CIDRs, or domains: {', '.join(invalid)}")
+            raise ValueError(
+                f"Scope entries must be IP addresses, CIDRs, or domains: {', '.join(invalid)}"
+            )
         return ", ".join(entries)
 
 
@@ -58,10 +71,22 @@ class ProjectUpdateScope(BaseModel):
     def validate_scope_entries(cls, value: Optional[str]) -> Optional[str]:
         if value is None or not value.strip():
             return None if value is None else ""
-        entries = [entry.strip() for entry in value.replace(";", ",").replace("\n", ",").split(",") if entry.strip()]
-        invalid = [entry for entry in entries if not (is_valid_ip(entry) or is_valid_cidr(entry) or is_valid_domain(entry))]
+        entries = [
+            entry.strip()
+            for entry in value.replace(";", ",").replace("\n", ",").split(",")
+            if entry.strip()
+        ]
+        invalid = [
+            entry
+            for entry in entries
+            if not (
+                is_valid_ip(entry) or is_valid_cidr(entry) or is_valid_domain(entry)
+            )
+        ]
         if invalid:
-            raise ValueError(f"Scope entries must be IP addresses, CIDRs, or domains: {', '.join(invalid)}")
+            raise ValueError(
+                f"Scope entries must be IP addresses, CIDRs, or domains: {', '.join(invalid)}"
+            )
         return ", ".join(entries)
 
 
@@ -83,7 +108,9 @@ class ProjectResponse(BaseModel):
             scope=p.scope,
             out_of_scope=p.out_of_scope,
             status=p.status,
-            created_at=p.created_at.isoformat() if p.created_at else datetime.utcnow().isoformat(),
+            created_at=p.created_at.isoformat()
+            if p.created_at
+            else datetime.utcnow().isoformat(),
         )
 
 
@@ -94,10 +121,11 @@ class ProjectResponse(BaseModel):
 from helios.api.v1.auth import get_current_user
 from helios.models.user import User
 
+
 @router.get("", response_model=List[ProjectResponse], summary="List all projects")
 async def list_projects(
     current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db_session)
+    db: AsyncSession = Depends(get_db_session),
 ):
     result = await db.execute(
         select(Project)
@@ -108,7 +136,12 @@ async def list_projects(
     return [ProjectResponse.from_orm(p) for p in projects]
 
 
-@router.post("", response_model=ProjectResponse, status_code=status.HTTP_201_CREATED, summary="Create a project")
+@router.post(
+    "",
+    response_model=ProjectResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Create a project",
+)
 async def create_project(
     project: ProjectCreate,
     current_user: User = Depends(get_current_user),
@@ -120,7 +153,7 @@ async def create_project(
         scope=project.scope,
         out_of_scope=project.out_of_scope,
         status="active",
-        created_by=current_user.id
+        created_by=current_user.id,
     )
     db.add(new_project)
     await db.commit()
@@ -165,7 +198,9 @@ async def update_project(
     return ProjectResponse.from_orm(project)
 
 
-@router.delete("/{project_id}", status_code=status.HTTP_204_NO_CONTENT, summary="Delete a project")
+@router.delete(
+    "/{project_id}", status_code=status.HTTP_204_NO_CONTENT, summary="Delete a project"
+)
 async def delete_project(
     project_id: str = Path(...),
     current_user: User = Depends(get_current_user),
@@ -192,16 +227,20 @@ async def delete_project(
 
     cleanup_logger = logging.getLogger(__name__)
     storage = StorageManager()
-    
+
     try:
         vector_store = VectorStore()
     except Exception as e:
         cleanup_logger.error(f"Failed to initialize VectorStore for cleanup: {e}")
-        raise HTTPException(status_code=500, detail="Cannot connect to vector store to purge project data. Retry later.")
+        raise HTTPException(
+            status_code=500,
+            detail="Cannot connect to vector store to purge project data. Retry later.",
+        )
 
     # 1. Evidence files (linked through Finding)
     ev_result = await db.execute(
-        select(Evidence).join(Finding, Evidence.finding_id == Finding.id)
+        select(Evidence)
+        .join(Finding, Evidence.finding_id == Finding.id)
         .where(Finding.project_id == project_id)
     )
     for ev in ev_result.scalars().all():
@@ -209,8 +248,13 @@ async def delete_project(
             try:
                 os.remove(ev.file_path)
             except OSError as e:
-                cleanup_logger.error(f"Could not delete evidence file {ev.file_path}: {e}")
-                raise HTTPException(status_code=500, detail="Failed to delete an evidence file from disk. Retry later.")
+                cleanup_logger.error(
+                    f"Could not delete evidence file {ev.file_path}: {e}"
+                )
+                raise HTTPException(
+                    status_code=500,
+                    detail="Failed to delete an evidence file from disk. Retry later.",
+                )
 
     # 2. Project files and their vector entries
     pf_result = await db.execute(
@@ -221,20 +265,32 @@ async def delete_project(
             await storage.delete_file(pf.storage_id)
         except Exception as e:
             cleanup_logger.error(f"Could not delete project file {pf.storage_id}: {e}")
-            raise HTTPException(status_code=500, detail="Failed to delete a project file from storage. Retry later.")
-            
+            raise HTTPException(
+                status_code=500,
+                detail="Failed to delete a project file from storage. Retry later.",
+            )
+
         try:
             vector_store.docs_collection.delete(where={"project_id": project_id})
         except Exception as e:
-            cleanup_logger.error(f"Could not delete vector docs for project {project_id}: {e}")
-            raise HTTPException(status_code=500, detail="Failed to purge project embeddings. Retry later.")
-            
+            cleanup_logger.error(
+                f"Could not delete vector docs for project {project_id}: {e}"
+            )
+            raise HTTPException(
+                status_code=500,
+                detail="Failed to purge project embeddings. Retry later.",
+            )
+
     # 3. Finding vector entries
     try:
         vector_store.findings_collection.delete(where={"project_id": project_id})
     except Exception as e:
-        cleanup_logger.error(f"Could not delete vector findings for project {project_id}: {e}")
-        raise HTTPException(status_code=500, detail="Failed to purge finding embeddings. Retry later.")
+        cleanup_logger.error(
+            f"Could not delete vector findings for project {project_id}: {e}"
+        )
+        raise HTTPException(
+            status_code=500, detail="Failed to purge finding embeddings. Retry later."
+        )
 
     # Delete project row (which cascades to Findings, Evidence, ProjectFiles if configured)
     await db.delete(project)
@@ -242,7 +298,11 @@ async def delete_project(
     return None
 
 
-@router.post("/{project_id}/scope", response_model=ProjectResponse, summary="Update project scope")
+@router.post(
+    "/{project_id}/scope",
+    response_model=ProjectResponse,
+    summary="Update project scope",
+)
 async def update_project_scope(
     scope_update: ProjectUpdateScope,
     project_id: str = Path(...),

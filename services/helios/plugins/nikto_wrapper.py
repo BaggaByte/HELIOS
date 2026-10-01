@@ -55,9 +55,12 @@ class NiktoPlugin(BasePlugin):
         try:
             cmd = [
                 "nikto",
-                "-h", target,
-                "-Format", "json",
-                "-output", output_file,
+                "-h",
+                target,
+                "-Format",
+                "json",
+                "-output",
+                output_file,
                 "-nointeractive",
             ]
             if port:
@@ -101,14 +104,16 @@ class NiktoPlugin(BasePlugin):
         hosts = data if isinstance(data, list) else [data]
         for host in hosts:
             for vuln in host.get("vulnerabilities", []):
-                results.append({
-                    "title": vuln.get("msg", "Nikto Finding"),
-                    "url": vuln.get("url", ""),
-                    "method": vuln.get("method", "GET"),
-                    "nikto_id": vuln.get("id", ""),
-                    "osvdb": vuln.get("OSVDB", ""),
-                    "severity": "medium",   # Nikto doesn't report CVSS; treat as medium
-                    "status": "observed",
-                    "source": "nikto",
-                })
+                results.append(
+                    {
+                        "title": vuln.get("msg", "Nikto Finding"),
+                        "url": vuln.get("url", ""),
+                        "method": vuln.get("method", "GET"),
+                        "nikto_id": vuln.get("id", ""),
+                        "osvdb": vuln.get("OSVDB", ""),
+                        "severity": "medium",  # Nikto doesn't report CVSS; treat as medium
+                        "status": "observed",
+                        "source": "nikto",
+                    }
+                )
         return results

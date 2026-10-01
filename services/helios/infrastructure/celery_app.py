@@ -28,6 +28,7 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 try:
     from celery import Celery as _Celery  # type: ignore
+
     _CELERY_AVAILABLE = True
 except ImportError:
     _CELERY_AVAILABLE = False
@@ -71,6 +72,7 @@ class _SyncCeleryApp:
 
     def task(self, *args: Any, **kwargs: Any) -> Callable:
         """Decorator that attaches a .delay() shim to any callable."""
+
         def decorator(func: Callable) -> Callable:
             def delay(*task_args: Any, **task_kwargs: Any) -> _SyncTaskResult:
                 logger.info(
@@ -114,10 +116,10 @@ def _make_real_celery(broker_url: str, backend_url: str) -> Any:
         result_serializer="json",
         accept_content=["json"],
         task_track_started=True,
-        task_acks_late=True,                  # re-queue on worker crash
-        worker_prefetch_multiplier=1,         # fair dispatch for long scans
+        task_acks_late=True,  # re-queue on worker crash
+        worker_prefetch_multiplier=1,  # fair dispatch for long scans
         broker_connection_retry_on_startup=True,
-        result_expires=3600,                  # clean up results after 1 hour
+        result_expires=3600,  # clean up results after 1 hour
         task_default_queue="helios",
         task_routes={
             "helios.tasks.*": {"queue": "helios"},
@@ -133,6 +135,7 @@ def _build_celery_app():
     # Import lazily to avoid circular imports at module load time
     try:
         from helios.config import get_settings
+
         settings = get_settings()
         broker_url = settings.CELERY_BROKER_URL
         backend_url = settings.REDIS_URL
@@ -149,6 +152,7 @@ def _build_celery_app():
     try:
         import redis as _redis  # type: ignore
         from urllib.parse import urlparse
+
         parsed = urlparse(broker_url)
         host = parsed.hostname or "localhost"
         port = parsed.port or 6379

@@ -48,7 +48,7 @@ class GobusterPlugin(BasePlugin):
     def execute(self, payload: Dict[str, Any]) -> Dict[str, Any]:
         target: str = payload.get("target", "").strip()
         wordlist: str = payload.get("wordlist", "").strip()
-        mode: str = payload.get("mode", "dir")    # dir | dns | vhost
+        mode: str = payload.get("mode", "dir")  # dir | dns | vhost
 
         if not target:
             raise ValueError("'target' URL is required for Gobuster.")
@@ -63,12 +63,16 @@ class GobusterPlugin(BasePlugin):
         status_codes: str = payload.get("status_codes", "200,204,301,302,307,401,403")
 
         cmd = [
-            "gobuster", mode,
-            "-u", target,
-            "-w", wordlist,
-            "-t", str(threads),
+            "gobuster",
+            mode,
+            "-u",
+            target,
+            "-w",
+            wordlist,
+            "-t",
+            str(threads),
             "--no-error",
-            "-q",           # quiet — suppress banner
+            "-q",  # quiet — suppress banner
         ]
         if mode == "dir":
             cmd += ["-s", status_codes]
@@ -104,11 +108,15 @@ class GobusterPlugin(BasePlugin):
             if mode == "dir":
                 m = _LINE_RE.match(line)
                 if m:
-                    hits.append({
-                        "path": m.group("path"),
-                        "status_code": int(m.group("status") or 0),
-                        "size": int(m.group("size") or 0) if m.group("size") else None,
-                    })
+                    hits.append(
+                        {
+                            "path": m.group("path"),
+                            "status_code": int(m.group("status") or 0),
+                            "size": int(m.group("size") or 0)
+                            if m.group("size")
+                            else None,
+                        }
+                    )
             else:
                 # DNS / vhost mode — lines are just the discovered host/domain
                 hits.append({"host": line})

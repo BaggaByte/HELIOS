@@ -24,6 +24,7 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 try:
     import openvino_genai as ov_genai  # type: ignore
+
     GENAI_AVAILABLE = True
 except ImportError:
     GENAI_AVAILABLE = False
@@ -65,6 +66,7 @@ class OpenVINORuntime:
 
         # Import settings lazily to avoid circular imports at module load time
         from helios.config import get_settings
+
         settings = get_settings()
 
         self.model_path: str = settings.OV_MODEL_PATH
@@ -76,7 +78,8 @@ class OpenVINORuntime:
 
         if not model_dir.is_absolute():
             import sys
-            if getattr(sys, 'frozen', False):
+
+            if getattr(sys, "frozen", False):
                 # If running as PyInstaller bundle, look next to the executable
                 base_dir = Path(sys.executable).parent.parent
             else:
@@ -108,6 +111,7 @@ class OpenVINORuntime:
 
         try:
             from openvino import Core  # type: ignore
+
             core = Core()
             available_devices = core.available_devices
         except Exception as exc:
@@ -116,10 +120,10 @@ class OpenVINORuntime:
 
         # Device preference: honour config, fall back gracefully
         preference_map: dict[str, list[str]] = {
-            "NPU":  ["NPU", "GPU", "CPU"],
-            "GPU":  ["GPU", "CPU"],
-            "AUTO": ["AUTO"],        # AUTO is its own meta-device
-            "CPU":  ["CPU"],
+            "NPU": ["NPU", "GPU", "CPU"],
+            "GPU": ["GPU", "CPU"],
+            "AUTO": ["AUTO"],  # AUTO is its own meta-device
+            "CPU": ["CPU"],
         }
         preferred = preference_map.get(self.device, ["AUTO"])
 
@@ -130,7 +134,9 @@ class OpenVINORuntime:
                 break
 
         self.device = selected
-        logger.info(f"Loading OpenVINO GenAI pipeline from '{model_dir}' on {selected}...")
+        logger.info(
+            f"Loading OpenVINO GenAI pipeline from '{model_dir}' on {selected}..."
+        )
 
         try:
             self.pipeline = ov_genai.LLMPipeline(str(model_dir), selected)
@@ -147,6 +153,7 @@ class OpenVINORuntime:
     def is_npu_available(cls) -> bool:
         try:
             from openvino import Core  # type: ignore
+
             return "NPU" in Core().available_devices
         except Exception:
             return False

@@ -51,10 +51,12 @@ class NaabuPlugin(BasePlugin):
 
         cmd = [
             "naabu",
-            "-host", target,
+            "-host",
+            target,
             "-json",
             "-silent",
-            "-rate", str(rate),
+            "-rate",
+            str(rate),
             "-no-color",
         ]
 
@@ -87,9 +89,11 @@ class NaabuPlugin(BasePlugin):
     def _parse_output(self, stdout: str) -> List[Dict[str, Any]]:
         results: List[Dict[str, Any]] = []
         for record in self.parse_jsonlines(stdout):
-            results.append({
-                "ip": record.get("ip", ""),
-                "port": record.get("port", 0),
-                "protocol": record.get("protocol", "tcp"),
-            })
+            results.append(
+                {
+                    "ip": record.get("ip", ""),
+                    "port": record.get("port", 0),
+                    "protocol": record.get("protocol", "tcp"),
+                }
+            )
         return results

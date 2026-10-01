@@ -1,15 +1,14 @@
 import json
 from typing import Dict, Any, List
 
+
 def parse_gobuster(content: str) -> Dict[str, Any]:
     """
     Parses Gobuster standard output or JSON output.
     Returns standard HELIOS recon format.
     """
-    results = {
-        "directories": []
-    }
-    
+    results = {"directories": []}
+
     # Try JSON parsing first (if gobuster was run with json out)
     try:
         data = json.loads(content)
@@ -28,9 +27,6 @@ def parse_gobuster(content: str) -> Dict[str, Any]:
                 if len(parts) >= 3 and parts[1].startswith("(Status:"):
                     path = parts[0]
                     status = parts[2].strip(")")
-                    results["directories"].append({
-                        "path": path,
-                        "status": status
-                    })
-                    
+                    results["directories"].append({"path": path, "status": status})
+
     return results

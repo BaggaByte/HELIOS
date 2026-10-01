@@ -27,6 +27,7 @@ async def _make_project(client, name: str = "Recon Test") -> str:
 
 # ── Nmap ingestion ────────────────────────────────────────────────────────────
 
+
 @pytest.mark.asyncio
 async def test_ingest_basic_nmap(client):
     pid = await _make_project(client)
@@ -50,7 +51,7 @@ async def test_ingest_multi_host_nmap(client):
     )
     assert r.status_code == 201
     body = r.json()
-    assert body["hosts_created"] == 2   # down host excluded
+    assert body["hosts_created"] == 2  # down host excluded
     assert body["services_created"] == 5  # 2 + 3
 
 
@@ -108,6 +109,7 @@ async def test_upsert_does_not_duplicate_hosts(client):
 
 
 # ── Host listing & filtering ──────────────────────────────────────────────────
+
 
 @pytest.mark.asyncio
 async def test_list_hosts_returns_all(client):

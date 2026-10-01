@@ -51,13 +51,17 @@ class KatanaPlugin(BasePlugin):
 
         cmd = [
             "katana",
-            "-u", target,
+            "-u",
+            target,
             "-json",
             "-silent",
-            "-d", str(depth),
+            "-d",
+            str(depth),
             "-no-color",
-            "-timeout", "10",           # per-request timeout (seconds)
-            "-rate-limit", "50",
+            "-timeout",
+            "10",  # per-request timeout (seconds)
+            "-rate-limit",
+            "50",
         ]
         if js_crawl:
             cmd.append("-js-crawl")
@@ -91,11 +95,13 @@ class KatanaPlugin(BasePlugin):
             endpoint = req.get("endpoint", "")
             if endpoint and endpoint not in seen:
                 seen.add(endpoint)
-                endpoints.append({
-                    "endpoint": endpoint,
-                    "method": req.get("method", "GET"),
-                    "source": req.get("source", ""),
-                    "status_code": resp.get("status_code", 0),
-                    "content_type": resp.get("headers", {}).get("content-type", ""),
-                })
+                endpoints.append(
+                    {
+                        "endpoint": endpoint,
+                        "method": req.get("method", "GET"),
+                        "source": req.get("source", ""),
+                        "status_code": resp.get("status_code", 0),
+                        "content_type": resp.get("headers", {}).get("content-type", ""),
+                    }
+                )
         return endpoints

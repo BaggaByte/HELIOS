@@ -33,43 +33,55 @@ async def global_search(
 
     # Search findings
     if not type or type == "finding":
-        stmt = select(Finding).where(
-            Finding.project_id == project_id,
-            or_(
-                Finding.title.ilike(f"%{q}%"),
-                Finding.description.ilike(f"%{q}%"),
-            ),
-        ).limit(20)
+        stmt = (
+            select(Finding)
+            .where(
+                Finding.project_id == project_id,
+                or_(
+                    Finding.title.ilike(f"%{q}%"),
+                    Finding.description.ilike(f"%{q}%"),
+                ),
+            )
+            .limit(20)
+        )
         f_result = await db.execute(stmt)
         for f in f_result.scalars().all():
-            results.append({
-                "id": str(f.id),
-                "type": "finding",
-                "title": f.title,
-                "snippet": (f.description or "")[:200],
-                "severity": f.severity,
-                "url": f"/projects/{project_id}/findings/{f.id}",
-            })
+            results.append(
+                {
+                    "id": str(f.id),
+                    "type": "finding",
+                    "title": f.title,
+                    "snippet": (f.description or "")[:200],
+                    "severity": f.severity,
+                    "url": f"/projects/{project_id}/findings/{f.id}",
+                }
+            )
 
     # Search hosts
     if not type or type == "host":
-        stmt = select(Host).where(
-            Host.project_id == project_id,
-            or_(
-                Host.ip.ilike(f"%{q}%"),
-                Host.hostname.ilike(f"%{q}%"),
-                Host.os.ilike(f"%{q}%"),
-            ),
-        ).limit(20)
+        stmt = (
+            select(Host)
+            .where(
+                Host.project_id == project_id,
+                or_(
+                    Host.ip.ilike(f"%{q}%"),
+                    Host.hostname.ilike(f"%{q}%"),
+                    Host.os.ilike(f"%{q}%"),
+                ),
+            )
+            .limit(20)
+        )
         h_result = await db.execute(stmt)
         for h in h_result.scalars().all():
-            results.append({
-                "id": str(h.id),
-                "type": "host",
-                "title": h.hostname or h.ip,
-                "snippet": f"IP: {h.ip}, OS: {h.os or 'unknown'}",
-                "url": f"/projects/{project_id}/recon/hosts/{h.id}",
-            })
+            results.append(
+                {
+                    "id": str(h.id),
+                    "type": "host",
+                    "title": h.hostname or h.ip,
+                    "snippet": f"IP: {h.ip}, OS: {h.os or 'unknown'}",
+                    "url": f"/projects/{project_id}/recon/hosts/{h.id}",
+                }
+            )
 
     return {
         "query": q,
