@@ -552,9 +552,9 @@ async def list_recon_plugins():
     summary="Execute a recon plugin against an in-scope target",
 )
 async def execute_recon_plugin(
+    request: PluginExecuteRequest,
     project_id: str = Path(...),
     plugin_name: str = Path(...),
-    request: PluginExecuteRequest,
     db: AsyncSession = Depends(get_db_session),
 ):
     from helios.infrastructure.plugin_registry import plugin_registry

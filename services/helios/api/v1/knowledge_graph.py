@@ -105,8 +105,8 @@ async def get_full_graph(
     summary="Create a knowledge graph node",
 )
 async def create_node(
-    project_id: str = Path(...),
     body: NodeCreate,
+    project_id: str = Path(...),
     db: AsyncSession = Depends(get_db_session),
 ):
     await get_project_or_404(project_id, db)
@@ -133,8 +133,8 @@ async def create_node(
     summary="Create a knowledge graph edge",
 )
 async def create_edge(
-    project_id: str = Path(...),
     body: EdgeCreate,
+    project_id: str = Path(...),
     db: AsyncSession = Depends(get_db_session),
 ):
     await get_project_or_404(project_id, db)

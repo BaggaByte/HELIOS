@@ -33,8 +33,8 @@ async def get_project_or_404(project_id: str, db: AsyncSession) -> Project:
 
 @router.post("/analyze", summary="Analyse source code for secrets and vulnerabilities")
 async def analyze_source_code(
-    project_id: str = Path(...),
     request: AnalyzeRequest,
+    project_id: str = Path(...),
     db: AsyncSession = Depends(get_db_session),
 ):
     project = await get_project_or_404(project_id, db)
