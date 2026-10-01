@@ -102,8 +102,6 @@ def build(target: str | None = None) -> None:
         "--hidden-import=alembic",
         "--hidden-import=aiosqlite",
         "--hidden-import=sqlalchemy.dialects.sqlite",
-        # OpenVINO genai is large; include only if available
-        "--hidden-import=openvino_genai",
         f"--add-data={alembic_ini}{sep}.",
         f"--add-data={alembic_dir}{sep}alembic",
         # Exclude heavy ML packages that are not needed at runtime when model
@@ -111,6 +109,9 @@ def build(target: str | None = None) -> None:
         "--exclude-module=torch",
         "--exclude-module=tensorflow",
         "--exclude-module=transformers",
+        "--exclude-module=openvino",
+        "--exclude-module=openvino_genai",
+        "--exclude-module=scipy",
     ]
 
     # --windowed suppresses the console on Windows; on Linux/macOS it is a

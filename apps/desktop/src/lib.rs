@@ -36,7 +36,7 @@ fn get_available_port() -> u16 {
 pub fn run() {
     let port = get_available_port();
     
-    let mut builder = tauri::Builder::default()
+    let builder = tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
         .plugin(
             tauri_plugin_log::Builder::default()
@@ -49,7 +49,9 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![get_backend_port])
         .setup(move |app| {
             // Initialize System Tray
-            tray::create_tray(app.handle())?;
+            if let Err(e) = tray::create_tray(app.handle()) {
+                log::error!("Failed to create system tray: {}", e);
+            }
             
             // Spawn Backend sidecar
             if cfg!(debug_assertions) {
@@ -65,27 +67,31 @@ pub fn run() {
             } else {
                 // Production mode: use sidecar via tauri-plugin-shell
                 use tauri_plugin_shell::ShellExt;
-                let sidecar_command = app.handle().shell()
-                    .sidecar("bin/helios_backend")
-                    .unwrap()
-                    .arg("--port")
-                    .arg(port.to_string());
-                
-                let (mut rx, child) = sidecar_command.spawn().expect("Failed to spawn helios_backend sidecar");
-                
-                let state: tauri::State<BackendProcess> = app.state();
-                *state.child.lock().unwrap() = Some(child);
-                
-                // Read logs and route them to Tauri's log plugin
-                tauri::async_runtime::spawn(async move {
-                    while let Some(event) = rx.recv().await {
-                        if let tauri_plugin_shell::process::CommandEvent::Stdout(line) = event {
-                            log::info!("Backend: {}", String::from_utf8_lossy(&line));
-                        } else if let tauri_plugin_shell::process::CommandEvent::Stderr(line) = event {
-                            log::error!("Backend Error: {}", String::from_utf8_lossy(&line));
+                match app.handle().shell().sidecar("bin/helios_backend") {
+                    Ok(mut sidecar_command) => {
+                        sidecar_command = sidecar_command.arg("--port").arg(port.to_string());
+                        
+                        match sidecar_command.spawn() {
+                            Ok((mut rx, child)) => {
+                                let state: tauri::State<BackendProcess> = app.state();
+                                *state.child.lock().unwrap() = Some(child);
+                                
+                                // Read logs and route them to Tauri's log plugin
+                                tauri::async_runtime::spawn(async move {
+                                    while let Some(event) = rx.recv().await {
+                                        if let tauri_plugin_shell::process::CommandEvent::Stdout(line) = event {
+                                            log::info!("Backend: {}", String::from_utf8_lossy(&line));
+                                        } else if let tauri_plugin_shell::process::CommandEvent::Stderr(line) = event {
+                                            log::error!("Backend Error: {}", String::from_utf8_lossy(&line));
+                                        }
+                                    }
+                                });
+                            }
+                            Err(e) => log::error!("Failed to spawn helios_backend sidecar: {}", e),
                         }
                     }
-                });
+                    Err(e) => log::error!("Failed to initialize sidecar command: {}", e),
+                }
             }
             
             Ok(())

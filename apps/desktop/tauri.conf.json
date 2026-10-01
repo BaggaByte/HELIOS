@@ -5,9 +5,7 @@
   "identifier": "com.baggabyte.helios",
   "build": {
     "frontendDist": "../web/dist",
-    "devUrl": "http://localhost:3000",
-    "beforeDevCommand": "npm --prefix ../.. run dev",
-    "beforeBuildCommand": "npm --prefix ../.. run build"
+    "devUrl": "http://localhost:3000"
   },
   "app": {
     "windows": [

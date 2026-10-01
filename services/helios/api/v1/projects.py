@@ -53,6 +53,17 @@ class ProjectUpdateScope(BaseModel):
     scope: str
     out_of_scope: Optional[str] = None
 
+    @field_validator("scope", "out_of_scope")
+    @classmethod
+    def validate_scope_entries(cls, value: Optional[str]) -> Optional[str]:
+        if value is None or not value.strip():
+            return None if value is None else ""
+        entries = [entry.strip() for entry in value.replace(";", ",").replace("\n", ",").split(",") if entry.strip()]
+        invalid = [entry for entry in entries if not (is_valid_ip(entry) or is_valid_cidr(entry) or is_valid_domain(entry))]
+        if invalid:
+            raise ValueError(f"Scope entries must be IP addresses, CIDRs, or domains: {', '.join(invalid)}")
+        return ", ".join(entries)
+
 
 class ProjectResponse(BaseModel):
     id: str
@@ -165,16 +176,28 @@ async def delete_project(
     if not project or project.created_by != current_user.id:
         raise HTTPException(status_code=404, detail="Project not found")
 
+    # Mark as deleting
+    project.status = "deleting"
+    await db.commit()
+    await db.refresh(project)
+
     # Clean up physical files and vector store entries before deleting DB rows
     import os
+    import logging
     from helios.models.evidence import Evidence
     from helios.models.finding import Finding
     from helios.models.project_file import ProjectFile
     from helios.infrastructure.storage import StorageManager
     from helios.infrastructure.vector_store import VectorStore
 
+    cleanup_logger = logging.getLogger(__name__)
     storage = StorageManager()
-    vector_store = VectorStore()
+    
+    try:
+        vector_store = VectorStore()
+    except Exception as e:
+        cleanup_logger.error(f"Failed to initialize VectorStore for cleanup: {e}")
+        raise HTTPException(status_code=500, detail="Cannot connect to vector store to purge project data. Retry later.")
 
     # 1. Evidence files (linked through Finding)
     ev_result = await db.execute(
@@ -186,28 +209,32 @@ async def delete_project(
             try:
                 os.remove(ev.file_path)
             except OSError as e:
-                import logging
-                logging.getLogger(__name__).warning(f"Could not delete evidence file: {e}")
+                cleanup_logger.error(f"Could not delete evidence file {ev.file_path}: {e}")
+                raise HTTPException(status_code=500, detail="Failed to delete an evidence file from disk. Retry later.")
 
     # 2. Project files and their vector entries
     pf_result = await db.execute(
         select(ProjectFile).where(ProjectFile.project_id == project_id)
     )
     for pf in pf_result.scalars().all():
-        await storage.delete_file(pf.storage_id)
-        # We don't have a direct delete_document in vector_store, but if we did, we'd call it.
-        # Minimal impact to leave orphaned embeddings without DB reference, but 
-        # ideally Chroma DB allows deletion by metadata.
+        try:
+            await storage.delete_file(pf.storage_id)
+        except Exception as e:
+            cleanup_logger.error(f"Could not delete project file {pf.storage_id}: {e}")
+            raise HTTPException(status_code=500, detail="Failed to delete a project file from storage. Retry later.")
+            
         try:
             vector_store.docs_collection.delete(where={"project_id": project_id})
-        except Exception:
-            pass
+        except Exception as e:
+            cleanup_logger.error(f"Could not delete vector docs for project {project_id}: {e}")
+            raise HTTPException(status_code=500, detail="Failed to purge project embeddings. Retry later.")
             
     # 3. Finding vector entries
     try:
         vector_store.findings_collection.delete(where={"project_id": project_id})
-    except Exception:
-        pass
+    except Exception as e:
+        cleanup_logger.error(f"Could not delete vector findings for project {project_id}: {e}")
+        raise HTTPException(status_code=500, detail="Failed to purge finding embeddings. Retry later.")
 
     # Delete project row (which cascades to Findings, Evidence, ProjectFiles if configured)
     await db.delete(project)

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Shield, Lock, User, AlertCircle, Globe } from 'lucide-react';
+import { Shield, Lock, User, AlertCircle, Globe, ServerOff } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
+import { getApiBaseUrl } from '../../services/apiClient';
 
 
 export function Login() {
@@ -11,18 +12,33 @@ export function Login() {
   const [loading, setLoading] = useState(false);
   const [isSetupRequired, setIsSetupRequired] = useState(false);
   const [checkingSetup, setCheckingSetup] = useState(true);
+  const [connectionError, setConnectionError] = useState(false);
   const setAuth = useAuthStore(state => state.setAuth);
 
   useEffect(() => {
-    fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api/v1'}/system/health`)
-      .then(res => res.json())
-      .then(data => {
-        if (data.setup_required) {
-          setIsSetupRequired(true);
+    let isMounted = true;
+    const checkHealth = async () => {
+      try {
+        const baseUrl = await getApiBaseUrl();
+        const res = await fetch(`${baseUrl}/system/health`);
+        if (!res.ok) throw new Error('Backend not ready');
+        const data = await res.json();
+        if (isMounted) {
+          if (data.setup_required) {
+            setIsSetupRequired(true);
+          }
+          setCheckingSetup(false);
         }
-      })
-      .catch(err => console.error("Failed to check health", err))
-      .finally(() => setCheckingSetup(false));
+      } catch (err) {
+        console.error("Failed to check health", err);
+        if (isMounted) {
+          setConnectionError(true);
+          setCheckingSetup(false);
+        }
+      }
+    };
+    checkHealth();
+    return () => { isMounted = false; };
   }, []);
 
   const handleSetup = async (e: React.FormEvent) => {
@@ -31,7 +47,8 @@ export function Login() {
     setLoading(true);
     
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api/v1'}/auth/setup`, {
+      const baseUrl = await getApiBaseUrl();
+      const response = await fetch(`${baseUrl}/auth/setup`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -46,7 +63,7 @@ export function Login() {
       
       const data = await response.json();
       
-      const userRes = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api/v1'}/auth/me`, {
+      const userRes = await fetch(`${baseUrl}/auth/me`, {
         headers: {
           'Authorization': `Bearer ${data.access_token}`
         }
@@ -72,7 +89,8 @@ export function Login() {
       formData.append('username', username);
       formData.append('password', password);
 
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api/v1'}/auth/login`, {
+      const baseUrl = await getApiBaseUrl();
+      const response = await fetch(`${baseUrl}/auth/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/x-www-form-urlencoded',
@@ -87,7 +105,7 @@ export function Login() {
       const data = await response.json();
       
       // Fetch user profile
-      const userRes = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api/v1'}/auth/me`, {
+      const userRes = await fetch(`${baseUrl}/auth/me`, {
         headers: {
           'Authorization': `Bearer ${data.access_token}`
         }
@@ -109,6 +127,21 @@ export function Login() {
     return (
       <div className="flex items-center justify-center min-h-screen bg-surface-primary">
         <Shield className="w-10 h-10 text-border-active animate-pulse" />
+      </div>
+    );
+  }
+
+  if (connectionError) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen bg-surface-primary gap-4">
+        <ServerOff className="w-12 h-12 text-rose-500 mb-2" />
+        <h2 className="text-xl font-bold text-gray-100">Backend Sidecar Unavailable</h2>
+        <p className="text-sm text-gray-400 max-w-md text-center">
+          HELIOS could not connect to the local backend service. If running the desktop app, ensure the sidecar was packaged correctly. If developing, ensure the API is running.
+        </p>
+        <button onClick={() => window.location.reload()} className="mt-4 px-4 py-2 bg-surface-secondary border border-border-default rounded-md text-xs text-gray-300 hover:text-white">
+          Retry Connection
+        </button>
       </div>
     );
   }

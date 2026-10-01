@@ -4,18 +4,25 @@ import os
 import time
 from typing import Dict, Any, List, Optional
 import logging
+from filelock import FileLock
 
 logger = logging.getLogger(__name__)
 
 class ChainOfCustody:
     """
-    Maintains a cryptographically verifiable append-only ledger of evidence.
-    Each entry is hashed and linked to the previous entry, preventing tampering.
+    Maintains a tamper-evident append-only ledger of evidence.
+    Each entry is hashed and linked to the previous entry. Note that while this
+    prevents stealthy modification of historical records, it is only truly
+    immutable if externally anchored or cryptographically signed by a trusted hardware module.
     """
-    def __init__(self, ledger_path: str = "data/evidence_ledger.jsonl"):
+    def __init__(self, ledger_path: str = "data/evidence_ledger.jsonl", create_if_missing: bool = True):
         self.ledger_path = ledger_path
-        os.makedirs(os.path.dirname(self.ledger_path), exist_ok=True)
-        self._ensure_ledger_exists()
+        self.lock_path = self.ledger_path + ".lock"
+        if create_if_missing:
+            os.makedirs(os.path.dirname(self.ledger_path), exist_ok=True)
+            # We only create genesis if it truly doesn't exist.
+            with FileLock(self.lock_path):
+                self._ensure_ledger_exists()
 
     def _ensure_ledger_exists(self):
         if not os.path.exists(self.ledger_path) or os.path.getsize(self.ledger_path) == 0:
@@ -50,27 +57,45 @@ class ChainOfCustody:
 
     def log_evidence(self, evidence_id: str, action: str, details: Dict[str, Any], user: str = "system") -> Dict[str, Any]:
         """
-        Logs an action performed on an evidence item.
+        Logs an action performed on an evidence item safely under concurrency.
         """
-        last_record = self._get_last_record()
-        
-        record = {
-            "id": evidence_id,
-            "timestamp": time.time(),
-            "action": action,
-            "user": user,
-            "details": details,
-            "previous_hash": last_record["hash"]
-        }
-        
-        record["hash"] = self._compute_hash(record)
-        
-        with open(self.ledger_path, 'a', encoding='utf-8') as f:
-            f.write(json.dumps(record) + "\n")
+        with FileLock(self.lock_path):
+            last_record = self._get_last_record()
             
+            record = {
+                "id": evidence_id,
+                "timestamp": time.time(),
+                "action": action,
+                "user": user,
+                "details": details,
+                "previous_hash": last_record["hash"]
+            }
+            
+            record["hash"] = self._compute_hash(record)
+            
+            with open(self.ledger_path, 'a', encoding='utf-8') as f:
+                f.write(json.dumps(record) + "\n")
+                
         logger.info(f"Evidence {evidence_id} logged: {action}")
         return record
         
+    def get_evidence_events(self, evidence_id: str) -> List[Dict[str, Any]]:
+        """
+        Returns all ledger events for a specific evidence_id.
+        """
+        events = []
+        if not os.path.exists(self.ledger_path):
+            return events
+            
+        with open(self.ledger_path, 'r', encoding='utf-8') as f:
+            for line in f:
+                if not line.strip():
+                    continue
+                record = json.loads(line)
+                if record.get("id") == evidence_id:
+                    events.append(record)
+        return events
+
     def verify_ledger(self) -> bool:
         """
         Verifies the integrity of the entire ledger by checking hash chains.
@@ -79,7 +104,7 @@ class ChainOfCustody:
         is_genesis = True
         
         if not os.path.exists(self.ledger_path):
-            return True
+            return False # A missing ledger cannot be verified as valid
             
         with open(self.ledger_path, 'r', encoding='utf-8') as f:
             for line in f:
@@ -101,4 +126,7 @@ class ChainOfCustody:
                 previous_hash = record["hash"]
                 is_genesis = False
                 
+        if is_genesis:
+            return False # Empty ledger (not even genesis) is invalid
+            
         return True

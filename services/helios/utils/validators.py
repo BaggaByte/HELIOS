@@ -168,23 +168,43 @@ def is_target_in_scope(target: str, scope_definitions: list[str]) -> bool:
         else:
             scope_domains.add(_normalize_domain(entry))
 
-    # 2. Check literal domain match (e.g. target="api.example.com" vs scope="*.example.com")
+    # 2. Check resolved IP(s) against allowed IPs and CIDRs
+    ip_authorized = False
+    has_private_ip = False
+    
+    for ip_str in target_ips:
+        try:
+            ip_obj = ipaddress.ip_address(ip_str)
+            if ip_obj.is_private or ip_obj.is_loopback or ip_obj.is_multicast or ip_obj.is_reserved:
+                has_private_ip = True
+                
+            if ip_str in scope_ips:
+                ip_authorized = True
+                continue
+                
+            for network in scope_cidrs:
+                if ip_obj in network:
+                    ip_authorized = True
+                    break
+        except ValueError:
+            continue
+
+    # If the user explicitly authorized the exact IP via CIDR/IP rules, it's allowed
+    if ip_authorized:
+        return True
+
+    # 3. Check literal domain match (e.g. target="api.example.com" vs scope="*.example.com")
+    domain_match = False
     if not is_valid_ip(target):
         for scope_domain in scope_domains:
             if target == scope_domain or target.endswith("." + scope_domain):
-                return True
-
-    # 3. Check resolved IP(s) against allowed IPs and CIDRs
-    for ip_str in target_ips:
-        if ip_str in scope_ips:
-            return True
-            
-        try:
-            ip_obj = ipaddress.ip_address(ip_str)
-            for network in scope_cidrs:
-                if ip_obj in network:
-                    return True
-        except ValueError:
-            continue
+                domain_match = True
+                break
+                
+    if domain_match:
+        # Prevent SSRF: A matching domain resolving to an unauthorized private IP is blocked
+        if has_private_ip and not ip_authorized:
+            return False
+        return True
 
     return False

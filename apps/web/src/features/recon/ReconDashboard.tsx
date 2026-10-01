@@ -133,7 +133,7 @@ export function ReconDashboard() {
             <Target className="text-border-active" size={22} />
             Attack Surface & Reconnaissance Matrix
           </h1>
-          <p className="text-xs text-gray-400 mt-0.5">Multi-tool port discovery, OS fingerprinting, service banner analysis, and CVE correlation.</p>
+          <p className="text-xs text-gray-400 mt-0.5">Nmap port discovery, OS fingerprinting, and service banner analysis.</p>
         </div>
 
         <div className="flex items-center gap-2">

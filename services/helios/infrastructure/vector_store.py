@@ -8,28 +8,17 @@ plaintext inside the Chroma SQLite/parquet store.
 
 How it works
 ────────────
-• `add_finding()` / `add_document()` pass text in unencrypted so the
-  embedding model can generate vectors from the real content, but the
-  document text stored in Chroma is encrypted before persisting.
+• `add_finding()` / `add_document()` manually generate embeddings from the 
+  plaintext before encryption, and store only the encrypted document in ChromaDB.
 
 • `search_findings()` / `search_documents()` decrypt retrieved documents
   before returning them to callers, so the LLM receives readable context.
 
-• The embedding is generated from the plaintext before encryption (ChromaDB
-  embeds internally if an embedding function is set, or uses the raw text).
+• The embedding is generated from the plaintext before encryption.
   To preserve semantic search, we pass the **plaintext** as the query text
   but store the **ciphertext** as the document — Chroma embeds the
   plaintext query and matches it against the vectors generated from the
-  plaintext document (embedded when `add` was called). This only works if
-  ChromaDB embeds at add-time using its own default embedding function
-  (sentence-transformers/all-MiniLM-L6-v2), which is the default when no
-  custom EF is supplied. If you add a custom EF later, make sure it also
-  embeds from plaintext (pass the plaintext as `query_texts`).
-
-• Encryption is optional / gracefully degraded: if EncryptionManager fails
-  to initialize (e.g., key provisioning hasn't run yet), the store falls
-  back to storing unencrypted text with a warning logged. This keeps the
-  server from crashing on first boot before keys are provisioned.
+  plaintext document (embedded when `add` was called).
 """
 
 from __future__ import annotations
@@ -100,9 +89,10 @@ class VectorStore:
         """Decrypt stored text; returns plaintext."""
         if self._enc is None:
             raise RuntimeError("EncryptionManager is missing.")
-        # Handle documents stored before encryption was enabled (valid UTF-8 plaintext)
+        # Fail closed on unexpected plaintext (Fernet tokens always start with gAAAAA)
         if not stored.startswith("gAAAAA"):
-            return stored
+            logger.error("VectorStore: Found unencrypted data in store. Migration required.")
+            raise ValueError("Unexpected plaintext record found in vector store.")
         try:
             return self._enc.decrypt_data(stored.encode("utf-8")).decode("utf-8")
         except Exception as exc:
@@ -125,27 +115,21 @@ class VectorStore:
         Add a finding to the vector store.
         The embedding is generated from *plaintext*; stored document is *encrypted*.
         """
-        # ChromaDB generates embeddings from `documents` before persisting.
-        # We must pass plaintext here so the embedding is semantically correct,
-        # then immediately store the encrypted version.  ChromaDB's API doesn't
-        # support separate embed-text vs store-text, so we work around this by:
-        #   1. Adding the plaintext document (Chroma embeds it).
-        #   2. Updating the document to the ciphertext (Chroma reuses the
-        #      existing embedding; the stored text is replaced).
         try:
+            # Manually embed the plaintext first
+            ef = getattr(self.findings_collection, "_embedding_function", None) or getattr(self.findings_collection, "embedding_function", None)
+            if not ef:
+                raise RuntimeError("No embedding function found on collection")
+            
+            embeddings = ef([text])
+            ciphertext = self._encrypt(text)
+            
             self.findings_collection.add(
-                documents=[text],
+                documents=[ciphertext],
+                embeddings=embeddings,
                 metadatas=[metadata or {}],
                 ids=[id],
             )
-            if self._enc:
-                # Replace stored text with encrypted version while keeping the
-                # embedding generated from plaintext.
-                self.findings_collection.update(
-                    documents=[self._encrypt(text)],
-                    metadatas=[metadata or {}],
-                    ids=[id],
-                )
         except Exception as exc:
             logger.error(f"VectorStore.add_finding failed: {exc}", exc_info=True)
             raise
@@ -153,17 +137,19 @@ class VectorStore:
     def add_document(self, id: str, text: str, metadata: Optional[dict] = None) -> None:
         """Add a parsed document to the docs collection (encrypted at rest)."""
         try:
+            ef = getattr(self.docs_collection, "_embedding_function", None) or getattr(self.docs_collection, "embedding_function", None)
+            if not ef:
+                raise RuntimeError("No embedding function found on collection")
+            
+            embeddings = ef([text])
+            ciphertext = self._encrypt(text)
+            
             self.docs_collection.add(
-                documents=[text],
+                documents=[ciphertext],
+                embeddings=embeddings,
                 metadatas=[metadata or {}],
                 ids=[id],
             )
-            if self._enc:
-                self.docs_collection.update(
-                    documents=[self._encrypt(text)],
-                    metadatas=[metadata or {}],
-                    ids=[id],
-                )
         except Exception as exc:
             logger.error(f"VectorStore.add_document failed: {exc}", exc_info=True)
             raise

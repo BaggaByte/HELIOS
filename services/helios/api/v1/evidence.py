@@ -97,8 +97,11 @@ async def upload_evidence(
             )
         except Exception as e:
             logger.error(f"Chain of custody logging failed for {evidence.id}: {e}")
-            # We don't rollback the DB commit here as the file is already saved
-            # and encrypted, but we log the failure loudly.
+            await db.delete(evidence)
+            await db.commit()
+            if os.path.exists(saved_info["file_path"]):
+                os.remove(saved_info["file_path"])
+            raise HTTPException(status_code=500, detail="Failed to secure evidence in chain of custody ledger")
 
         return {
             "status": "success",
@@ -209,16 +212,24 @@ async def verify_evidence_integrity(
     # Also verify the ledger integrity
     try:
         from helios.core.evidence.chain_of_custody import ChainOfCustody
-        coc = ChainOfCustody()
+        coc = ChainOfCustody(create_if_missing=False)
         ledger_valid = coc.verify_ledger()
+        
+        events = coc.get_evidence_events(evidence_id)
+        has_upload = any(e.get("action") == "UPLOAD" and e.get("details", {}).get("file_hash") == evidence.file_hash for e in events)
+        
         verification["ledger_valid"] = ledger_valid
+        
         if not ledger_valid:
-            verification["is_valid"] = False
-            verification["error"] = "Chain of custody ledger verification failed."
+            verification["valid"] = False
+            verification["error"] = "Chain of custody ledger verification failed (corrupted or missing)."
+        elif not has_upload:
+            verification["valid"] = False
+            verification["error"] = "Evidence was not found in the verified chain of custody ledger."
     except Exception as e:
         logger.error(f"Ledger verification failed: {e}")
         verification["ledger_valid"] = False
-        verification["is_valid"] = False
+        verification["valid"] = False
         verification["error"] = "Internal error verifying chain of custody."
 
     return {"status": "success", "data": verification}

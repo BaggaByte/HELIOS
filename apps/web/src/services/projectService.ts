@@ -20,4 +20,5 @@ export interface CreateProjectInput {
 export const projectService = {
   list: () => apiClient.get<Project[]>('/projects'),
   create: (project: CreateProjectInput) => apiClient.post<Project>('/projects', project),
+  updateScope: (projectId: string, scope: { scope: string, out_of_scope?: string }) => apiClient.post<Project>(`/projects/${projectId}/scope`, scope),
 };

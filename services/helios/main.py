@@ -57,12 +57,48 @@ class ContentLengthLimitMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
         content_length = request.headers.get("content-length")
         if content_length is not None:
-            if int(content_length) > settings.MAX_UPLOAD_SIZE:
+            try:
+                if int(content_length) > settings.MAX_UPLOAD_SIZE:
+                    return JSONResponse(
+                        status_code=413,
+                        content={"detail": f"Payload too large. Maximum allowed size is {settings.MAX_UPLOAD_SIZE} bytes."}
+                    )
+            except ValueError:
+                return JSONResponse(status_code=400, content={"detail": "Invalid Content-Length header."})
+        
+        # Enforce stream limits dynamically for chunked/streamed uploads bypassing Content-Length
+        body_size = 0
+        receive_ = request.receive
+        request.state.payload_too_large = False
+        
+        async def receive_with_limit():
+            nonlocal body_size
+            message = await receive_()
+            if message["type"] == "http.request":
+                body_size += len(message.get("body", b""))
+                if body_size > settings.MAX_UPLOAD_SIZE:
+                    request.state.payload_too_large = True
+                    raise RuntimeError("PAYLOAD_TOO_LARGE")
+            return message
+            
+        request._receive = receive_with_limit
+        
+        try:
+            response = await call_next(request)
+        except Exception as e:
+            if getattr(request.state, "payload_too_large", False):
                 return JSONResponse(
                     status_code=413,
-                    content={"detail": f"Payload too large. Maximum allowed size is {settings.MAX_UPLOAD_SIZE} bytes."}
+                    content={"detail": f"Payload stream exceeded maximum allowed size of {settings.MAX_UPLOAD_SIZE} bytes."}
                 )
-        return await call_next(request)
+            raise
+            
+        if getattr(request.state, "payload_too_large", False):
+            return JSONResponse(
+                status_code=413,
+                content={"detail": f"Payload stream exceeded maximum allowed size of {settings.MAX_UPLOAD_SIZE} bytes."}
+            )
+        return response
 
 app.add_middleware(ContentLengthLimitMiddleware)
 
@@ -117,10 +153,15 @@ app.include_router(search.router,          prefix=f"{_P}/search",          tags=
 if __name__ == "__main__":
     import uvicorn
     import sys
+    import argparse
     
     # Check if running as packaged executable
     if getattr(sys, 'frozen', False):
-        logger.info("Starting bundled FastAPI app...")
-        uvicorn.run(app, host="127.0.0.1", port=8000)
+        parser = argparse.ArgumentParser(description="HELIOS Backend Sidecar")
+        parser.add_argument("--port", type=int, default=8000, help="Port to bind the sidecar to")
+        args, _ = parser.parse_known_args()
+        
+        logger.info(f"Starting bundled FastAPI app on port {args.port}...")
+        uvicorn.run(app, host="127.0.0.1", port=args.port)
     else:
         logger.info("Running from source. Use 'uvicorn helios.main:app' or 'uv run fastapi dev helios/main.py' to start.")

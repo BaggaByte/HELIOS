@@ -10,6 +10,7 @@ interface ProjectState {
   error: string | null;
   loadProjects: () => Promise<void>;
   createProject: (input: CreateProjectInput) => Promise<Project>;
+  updateProjectScope: (projectId: string, scope: string, outOfScope?: string) => Promise<Project>;
   setActiveProject: (projectId: string) => void;
 }
 
@@ -39,6 +40,14 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
     localStorage.setItem(ACTIVE_PROJECT_KEY, project.id);
     set(state => ({ projects: [project, ...state.projects], activeProjectId: project.id, error: null }));
     return project;
+  },
+
+  updateProjectScope: async (projectId: string, scope: string, outOfScope?: string) => {
+    const updated = await projectService.updateScope(projectId, { scope, out_of_scope: outOfScope });
+    set(state => ({
+      projects: state.projects.map(p => p.id === projectId ? updated : p)
+    }));
+    return updated;
   },
 
   setActiveProject: (projectId) => {

@@ -1,8 +1,8 @@
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useWebSocket } from './useWebSocket';
 import { useChatStore } from '../stores/chatStore';
 import { useProjectStore } from '../stores/projectStore';
-import { API_BASE_URL } from '../services/apiClient';
+import { getApiBaseUrl } from '../services/apiClient';
 
 export interface ChatMessage {
   id: string;
@@ -22,8 +22,24 @@ export interface StreamEvent {
 
 export function useChat() {
   const projectId = useProjectStore(state => state.activeProjectId);
-  const wsBase = API_BASE_URL.replace(/^http:/, 'ws:').replace(/^https:/, 'wss:');
-  const wsUrl = projectId ? `${wsBase}/chat/stream/${encodeURIComponent(projectId)}` : '';
+  const [wsUrl, setWsUrl] = useState('');
+  
+  useEffect(() => {
+    if (!projectId) {
+      setWsUrl('');
+      return;
+    }
+    
+    let active = true;
+    getApiBaseUrl().then(baseUrl => {
+      if (!active) return;
+      const wsBase = baseUrl.replace(/^http:/, 'ws:').replace(/^https:/, 'wss:');
+      setWsUrl(`${wsBase}/chat/stream/${encodeURIComponent(projectId)}`);
+    });
+    
+    return () => { active = false; };
+  }, [projectId]);
+
   const { 
     messages, 
     activeAssistantMsgId,
@@ -35,7 +51,7 @@ export function useChat() {
     setConnectionStatus
   } = useChatStore();
 
-  const { isConnected, sendMessage, subscribe } = useWebSocket<StreamEvent>(wsUrl, { enabled: Boolean(projectId) });
+  const { isConnected, sendMessage, subscribe } = useWebSocket<StreamEvent>(wsUrl, { enabled: Boolean(wsUrl) });
 
   useEffect(() => {
     useChatStore.setState({ messages: [], activeAssistantMsgId: null });

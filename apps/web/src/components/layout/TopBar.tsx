@@ -11,7 +11,14 @@ export function TopBar() {
   const [projectName, setProjectName] = useState('');
   const [projectScope, setProjectScope] = useState('');
   const [createError, setCreateError] = useState<string | null>(null);
-  const { projects, activeProjectId, isLoading: projectsLoading, error: projectsError, loadProjects, createProject, setActiveProject } = useProjectStore();
+  
+  const [isScopeModalOpen, setIsScopeModalOpen] = useState(false);
+  const [editScope, setEditScope] = useState('');
+  const [editOutOfScope, setEditOutOfScope] = useState('');
+  const [scopeError, setScopeError] = useState<string | null>(null);
+  const [isUpdatingScope, setIsUpdatingScope] = useState(false);
+  
+  const { projects, activeProjectId, isLoading: projectsLoading, error: projectsError, loadProjects, createProject, updateProjectScope, setActiveProject } = useProjectStore();
   const activeProject = projects.find(project => project.id === activeProjectId);
   const { user, logout } = useAuthStore();
 
@@ -29,6 +36,29 @@ export function TopBar() {
     } catch (error) {
       setCreateError(error instanceof Error ? error.message : 'Could not create project');
     }
+  };
+
+  const handleUpdateScope = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!activeProject) return;
+    setScopeError(null);
+    setIsUpdatingScope(true);
+    try {
+      await updateProjectScope(activeProject.id, editScope.trim(), editOutOfScope.trim() || undefined);
+      setIsScopeModalOpen(false);
+    } catch (error) {
+      setScopeError(error instanceof Error ? error.message : 'Could not update scope');
+    } finally {
+      setIsUpdatingScope(false);
+    }
+  };
+
+  const openScopeEditor = () => {
+    if (!activeProject) return;
+    setEditScope(activeProject.scope);
+    setEditOutOfScope(activeProject.out_of_scope || '');
+    setScopeError(null);
+    setIsScopeModalOpen(true);
   };
 
   // Global hotkey ⌘K / Ctrl+K
@@ -105,10 +135,15 @@ export function TopBar() {
             )}
           </div>
 
-          <div className="hidden lg:flex items-center gap-2 px-2.5 py-1 rounded-md bg-surface-primary/70 border border-border-default text-xs text-gray-400 font-mono">
+          <button 
+            onClick={openScopeEditor}
+            disabled={!activeProject}
+            className="hidden lg:flex items-center gap-2 px-2.5 py-1 rounded-md bg-surface-primary/70 border border-border-default hover:border-border-active/60 text-xs text-gray-400 font-mono transition-colors cursor-pointer"
+            title={activeProject ? "Click to edit scope" : ""}
+          >
             <span className="text-gray-500">SCOPE:</span>
             <span className="text-gray-300 truncate max-w-[200px]">{activeProject?.scope ?? 'Create or select a project to begin'}</span>
-          </div>
+          </button>
         </div>
 
         {/* Center: Omni Search & Command Bar */}
@@ -159,6 +194,44 @@ export function TopBar() {
         isOpen={isCommandPaletteOpen} 
         onClose={() => setIsCommandPaletteOpen(false)} 
       />
+
+      {/* Scope Editor Modal */}
+      {isScopeModalOpen && activeProject && (
+        <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4">
+          <div className="w-full max-w-md bg-surface-secondary border border-border-default rounded-xl shadow-lg p-5">
+            <h2 className="text-lg font-bold text-gray-100 mb-2">Edit Project Scope</h2>
+            <p className="text-xs text-gray-400 mb-4">Update authorized networks, domains, or IPs for this engagement.</p>
+            <form onSubmit={handleUpdateScope} className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-gray-400 mb-1">In-Scope Targets</label>
+                <textarea
+                  value={editScope}
+                  onChange={e => setEditScope(e.target.value)}
+                  className="w-full rounded-md bg-surface-primary border border-border-default px-3 py-2 text-xs text-gray-100"
+                  rows={3}
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-gray-400 mb-1">Out-of-Scope (Optional)</label>
+                <textarea
+                  value={editOutOfScope}
+                  onChange={e => setEditOutOfScope(e.target.value)}
+                  className="w-full rounded-md bg-surface-primary border border-border-default px-3 py-2 text-xs text-gray-100"
+                  rows={2}
+                />
+              </div>
+              {scopeError && <p className="text-xs text-severity-critical">{scopeError}</p>}
+              <div className="flex justify-end gap-2 mt-4">
+                <button type="button" onClick={() => setIsScopeModalOpen(false)} className="px-3 py-1.5 text-xs text-gray-300 hover:text-white">Cancel</button>
+                <button type="submit" disabled={isUpdatingScope} className="px-3 py-1.5 rounded bg-border-active text-white text-xs font-semibold hover:bg-opacity-90 disabled:opacity-50">
+                  {isUpdatingScope ? 'Saving...' : 'Save Scope'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </>
   );
 }

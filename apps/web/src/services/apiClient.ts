@@ -12,8 +12,31 @@ export async function getApiBaseUrl(): Promise<string> {
   if (window.__TAURI_INTERNALS__ && !portInitialized) {
     try {
       const port = await invoke<number>('get_backend_port');
-      dynamicApiBaseUrl = `http://127.0.0.1:${port}/api/v1`;
-      console.log(`[HELIOS] Discovered backend sidecar on port ${port}`);
+      const baseUrl = `http://127.0.0.1:${port}/api/v1`;
+      
+      // Wait for backend readiness
+      console.log(`[HELIOS] Discovered backend port ${port}. Waiting for readiness...`);
+      let isReady = false;
+      for (let i = 0; i < 20; i++) {
+        try {
+          const resp = await fetch(`${baseUrl}/system/health`);
+          if (resp.ok) {
+            isReady = true;
+            break;
+          }
+        } catch (e) {
+          // Connection refused, wait and retry
+          await new Promise(resolve => setTimeout(resolve, 500));
+        }
+      }
+      
+      if (!isReady) {
+        console.warn("[HELIOS] Backend did not become ready in time.");
+      } else {
+        console.log(`[HELIOS] Backend sidecar on port ${port} is ready.`);
+      }
+      
+      dynamicApiBaseUrl = baseUrl;
     } catch (e) {
       console.warn("Failed to get backend port from Tauri, falling back to default.", e);
     } finally {
