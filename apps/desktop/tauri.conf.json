@@ -26,8 +26,6 @@
   },
   "plugins": {
     "shell": {
-      "all": false,
-      "execute": [],
       "open": true
     }
   },
