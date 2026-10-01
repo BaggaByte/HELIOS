@@ -4,8 +4,8 @@
   "version": "0.1.0",
   "identifier": "com.baggabyte.helios",
   "build": {
-    "beforeDevCommand": "npm run dev --workspace=apps/web",
-    "beforeBuildCommand": "npm run build --workspace=apps/web",
+    "beforeDevCommand": "cd ../.. && npm run dev --workspace=apps/web",
+    "beforeBuildCommand": "cd ../.. && npm run build --workspace=apps/web",
     "frontendDist": "../web/dist",
     "devUrl": "http://localhost:3000"
   },
