@@ -1,9 +1,27 @@
 /**
  * Core API Client for communicating with the FastAPI backend.
  */
+import { invoke } from '@tauri-apps/api/core';
 
 // In production, this should be an environment variable.
-export const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api/v1').replace(/\/+$/, '');
+let dynamicApiBaseUrl = (import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000/api/v1').replace(/\/+$/, '');
+let portInitialized = false;
+
+export async function getApiBaseUrl(): Promise<string> {
+  // @ts-ignore - Check if running inside Tauri
+  if (window.__TAURI_INTERNALS__ && !portInitialized) {
+    try {
+      const port = await invoke<number>('get_backend_port');
+      dynamicApiBaseUrl = `http://127.0.0.1:${port}/api/v1`;
+      console.log(`[HELIOS] Discovered backend sidecar on port ${port}`);
+    } catch (e) {
+      console.warn("Failed to get backend port from Tauri, falling back to default.", e);
+    } finally {
+      portInitialized = true;
+    }
+  }
+  return dynamicApiBaseUrl;
+}
 
 export class ApiError extends Error {
   public status: number;
@@ -58,7 +76,8 @@ function getAuthHeaders(): HeadersInit {
 
 export const apiClient = {
   async get<T>(endpoint: string, headers?: HeadersInit): Promise<T> {
-    const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+    const baseUrl = await getApiBaseUrl();
+    const response = await fetch(`${baseUrl}${endpoint}`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
@@ -70,7 +89,8 @@ export const apiClient = {
   },
 
   async getFile(endpoint: string, headers?: HeadersInit): Promise<Blob> {
-    const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+    const baseUrl = await getApiBaseUrl();
+    const response = await fetch(`${baseUrl}${endpoint}`, {
       method: 'GET',
       headers: {
         ...getAuthHeaders(),
@@ -91,6 +111,7 @@ export const apiClient = {
   },
 
   async post<T>(endpoint: string, data: any, headers?: HeadersInit): Promise<T> {
+    const baseUrl = await getApiBaseUrl();
     const isFormData = data instanceof FormData;
     const reqHeaders: Record<string, string> = {
       ...getAuthHeaders() as Record<string, string>,
@@ -101,7 +122,7 @@ export const apiClient = {
       reqHeaders['Content-Type'] = 'application/json';
     }
 
-    const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+    const response = await fetch(`${baseUrl}${endpoint}`, {
       method: 'POST',
       headers: reqHeaders,
       body: isFormData ? data : JSON.stringify(data),
@@ -110,6 +131,7 @@ export const apiClient = {
   },
 
   async put<T>(endpoint: string, data: any, headers?: HeadersInit): Promise<T> {
+    const baseUrl = await getApiBaseUrl();
     const isFormData = data instanceof FormData;
     const reqHeaders: Record<string, string> = {
       ...getAuthHeaders() as Record<string, string>,
@@ -120,7 +142,7 @@ export const apiClient = {
       reqHeaders['Content-Type'] = 'application/json';
     }
 
-    const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+    const response = await fetch(`${baseUrl}${endpoint}`, {
       method: 'PUT',
       headers: reqHeaders,
       body: isFormData ? data : JSON.stringify(data),
@@ -129,7 +151,8 @@ export const apiClient = {
   },
 
   async delete<T>(endpoint: string, headers?: HeadersInit): Promise<T> {
-    const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+    const baseUrl = await getApiBaseUrl();
+    const response = await fetch(`${baseUrl}${endpoint}`, {
       method: 'DELETE',
       headers: {
         'Content-Type': 'application/json',

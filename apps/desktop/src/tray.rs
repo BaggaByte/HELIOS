@@ -16,7 +16,7 @@ pub fn create_tray(app: &AppHandle<Wry>) -> Result<(), Box<dyn std::error::Error
         .menu_on_left_click(false)
         .on_menu_event(|app, event| match event.id.as_ref() {
             "quit" => {
-                std::process::exit(0);
+                app.exit(0);
             }
             "show" => {
                 if let Some(window) = app.get_webview_window("main") {

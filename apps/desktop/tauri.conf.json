@@ -17,12 +17,12 @@
         "height": 800,
         "resizable": true,
         "fullscreen": false,
-        "decorations": false,
-        "transparent": true
+        "decorations": true,
+        "transparent": false
       }
     ],
     "security": {
-      "csp": "default-src 'self'; img-src 'self' data: blob:; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self' ipc: http://ipc.localhost http://localhost:* ws://localhost:*"
+      "csp": "default-src 'self'; img-src 'self' data: blob:; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self' ipc: http://ipc.localhost http://127.0.0.1:* ws://127.0.0.1:*"
     }
   },
   "plugins": {
