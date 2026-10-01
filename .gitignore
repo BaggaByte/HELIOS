@@ -39,7 +39,7 @@ target/
 *.db-shm
 *.db-wal
 services/data/
-models/
+/models/
 # ── OS / IDE ──────────────────────────────────────────────────
 .DS_Store
 Thumbs.db
