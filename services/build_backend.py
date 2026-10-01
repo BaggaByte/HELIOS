@@ -127,7 +127,7 @@ def build(target: str | None = None) -> None:
     # --windowed suppresses the console on Windows; on Linux/macOS it is a
     # no-op (or unsupported) — skip it on those platforms.
     if sys.platform == "win32":
-        pyinstaller_args.append("--windowed")
+        pass
 
     print("\nRunning PyInstaller...\n")
     result = subprocess.run(pyinstaller_args, cwd=str(base_dir), check=False)
