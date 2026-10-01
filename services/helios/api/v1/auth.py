@@ -100,7 +100,7 @@ async def require_project_access(
     return project
 
 
-failed_attempts = defaultdict(list)
+failed_attempts: dict[str, list[float]] = defaultdict(list)
 
 
 @router.post("/login")

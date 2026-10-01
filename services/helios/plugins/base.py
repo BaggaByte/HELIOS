@@ -188,7 +188,7 @@ class BasePlugin(ABC):
         }
 
     def _plugin_error(self, exc: Exception) -> dict[str, Any]:
-        logger.error(f"[{self.name}] execution failed: {exc}", exc_info=True)
+        logger.exception(f"[{self.name}] execution failed: {exc}")
         return {
             "status": "error",
             "error": str(exc),

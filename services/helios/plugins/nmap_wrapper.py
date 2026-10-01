@@ -76,7 +76,7 @@ class NmapPlugin(BasePlugin):
                 "status": "error",
                 "error": "Nmap scan exceeded the 5-minute limit.",
             }
-        except Exception as e:
+        except (ValueError, RuntimeError) as e:
             return {"status": "error", "error": str(e)}
 
     def _parse_nmap_xml(self, xml_string: str) -> dict[str, Any]:

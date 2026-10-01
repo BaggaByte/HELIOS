@@ -37,7 +37,7 @@ def discover_plugins(package_name: str = "helios.plugins") -> list[type[BasePlug
                 if issubclass(item, BasePlugin) and item is not BasePlugin:
                     plugins.append(item)
                     logger.debug(f"Discovered plugin: {item_name} in {module_name}")
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             logger.error(f"Error loading plugin module {module_name}: {e}")
 
     return plugins

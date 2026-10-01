@@ -158,7 +158,7 @@ class VectorStore:
                 ids=[id],
             )
         except Exception as exc:
-            logger.error(f"VectorStore.add_document failed: {exc}", exc_info=True)
+            logger.exception(f"VectorStore.add_document failed: {exc}")
             raise
 
     def search_findings(
@@ -195,5 +195,5 @@ class VectorStore:
         """Remove a finding by ID."""
         try:
             self.findings_collection.delete(ids=[id])
-        except Exception as exc:
+        except (ValueError, RuntimeError) as exc:
             logger.warning(f"VectorStore.delete_finding({id}) failed: {exc}")
