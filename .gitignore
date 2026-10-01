@@ -39,6 +39,7 @@ target/
 *.db-shm
 *.db-wal
 services/data/
+/data/
 /models/
 # ── OS / IDE ──────────────────────────────────────────────────
 .DS_Store

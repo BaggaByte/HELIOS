@@ -18,23 +18,29 @@ export function Login() {
   useEffect(() => {
     let isMounted = true;
     const checkHealth = async () => {
-      try {
-        const baseUrl = await getApiBaseUrl();
-        const res = await fetch(`${baseUrl}/system/health`);
-        if (!res.ok) throw new Error('Backend not ready');
-        const data = await res.json();
-        if (isMounted) {
-          if (data.setup_required) {
-            setIsSetupRequired(true);
+      const baseUrl = await getApiBaseUrl();
+      let lastError: unknown;
+      for (let attempt = 0; attempt < 30 && isMounted; attempt++) {
+        try {
+          const res = await fetch(`${baseUrl}/system/health`);
+          if (res.ok) {
+            const data = await res.json();
+            if (isMounted) {
+              if (data.setup_required) setIsSetupRequired(true);
+              setCheckingSetup(false);
+            }
+            return;
           }
-          setCheckingSetup(false);
+          lastError = new Error(`Backend health check returned ${res.status}`);
+        } catch (err) {
+          lastError = err;
         }
-      } catch (err) {
-        console.error("Failed to check health", err);
-        if (isMounted) {
-          setConnectionError(true);
-          setCheckingSetup(false);
-        }
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      }
+      if (isMounted) {
+        console.error('Failed to connect to backend health endpoint', lastError);
+        setConnectionError(true);
+        setCheckingSetup(false);
       }
     };
     checkHealth();

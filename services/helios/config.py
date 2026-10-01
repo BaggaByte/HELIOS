@@ -62,6 +62,7 @@ class Settings(BaseSettings):
         "http://localhost:3000",
         "tauri://localhost",
         "https://tauri.localhost",
+        "http://tauri.localhost",
     ]
 
     # ── Storage ───────────────────────────────────────────────────────────────

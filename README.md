@@ -39,30 +39,28 @@ OV_DEVICE=AUTO
 
 ## Running the Application
 
-### 1. Start the Backend
+### 1. Start the Web App
 
-From the `services/` directory, install the pinned backend dependencies and start the FastAPI server. The AI inference dependencies are optional to keep the core lightweight; install them using the `ai` extra if you want local models.
+After installing the backend dependencies with `cd services; uv sync`, return to the repository root and start the frontend and backend together. The launcher picks an available local API port, so it still works when another service already uses port 8000.
+
+```bash
+npm install
+npm run dev
+# Open http://localhost:3000
+```
+
+### 2. Start the Desktop App
+
+The Tauri shell starts its backend automatically. Install backend dependencies first; AI inference dependencies are optional.
 
 ```bash
 cd services
-# Install with AI dependencies
-uv sync --extra ai
-uv run uvicorn helios.main:app --host 127.0.0.1 --port 8000 --reload
-```
-
-### 2. Start the Frontend / Desktop App
-
-In a separate terminal window, install the root npm workspace dependencies and start the frontend. The desktop shell uses the same web workspace. Start the backend separately before using either UI.
-
-```bash
-# From the repository root
-npm install
-npm run dev
-
-# To run the native desktop shell (requires the Tauri CLI and Rust)
-cd apps/desktop
+uv sync
+cd ../apps/desktop
 cargo tauri dev
 ```
+
+To run the API alone for another client, start it from `services/` with `uv run uvicorn helios.main:app --host 127.0.0.1 --port 8000 --reload`.
 
 ## Architecture Notes
 

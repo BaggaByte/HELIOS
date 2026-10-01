@@ -17,7 +17,7 @@ export async function getApiBaseUrl(): Promise<string> {
       // Wait for backend readiness
       console.log(`[HELIOS] Discovered backend port ${port}. Waiting for readiness...`);
       let isReady = false;
-      for (let i = 0; i < 20; i++) {
+      for (let i = 0; i < 60; i++) {
         try {
           const resp = await fetch(`${baseUrl}/system/health`);
           if (resp.ok) {
@@ -25,9 +25,9 @@ export async function getApiBaseUrl(): Promise<string> {
             break;
           }
         } catch (e) {
-          // Connection refused, wait and retry
-          await new Promise(resolve => setTimeout(resolve, 500));
+          // Connection refused while the sidecar is starting; retry below.
         }
+        await new Promise(resolve => setTimeout(resolve, 500));
       }
       
       if (!isReady) {
