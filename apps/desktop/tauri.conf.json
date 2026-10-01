@@ -4,6 +4,8 @@
   "version": "0.1.0",
   "identifier": "com.baggabyte.helios",
   "build": {
+    "beforeDevCommand": "npm --prefix ../.. run dev",
+    "beforeBuildCommand": "npm --prefix ../.. run build",
     "frontendDist": "../web/dist",
     "devUrl": "http://localhost:3000"
   },
