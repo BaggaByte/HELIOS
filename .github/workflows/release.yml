@@ -120,6 +120,9 @@ jobs:
       - name: Install frontend dependencies
         run: npm ci
 
+      - name: Build frontend
+        run: npm run build --workspace=apps/web
+
       # ── Tauri release build ──────────────────────────────────
       - name: Build Tauri app
         uses: tauri-apps/tauri-action@v0
