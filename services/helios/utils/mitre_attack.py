@@ -18,7 +18,7 @@ coverage grows.
 
 from __future__ import annotations
 
-from typing import Dict, Optional, TypedDict
+from typing import TypedDict
 
 MITRE_TACTICS = {
     "TA0001": "Initial Access",
@@ -42,7 +42,7 @@ class Technique(TypedDict):
     tactic: str
 
 
-TECHNIQUES: Dict[str, Technique] = {
+TECHNIQUES: dict[str, Technique] = {
     "T1595": {"id": "T1595", "name": "Active Scanning", "tactic": "Reconnaissance"},
     "T1590": {
         "id": "T1590",
@@ -124,7 +124,7 @@ TECHNIQUES: Dict[str, Technique] = {
 # Best-effort CWE -> likely ATT&CK technique mapping, covering the CWEs
 # HELIOS's own analyzers (secret detector, JWT/OAuth/SAML/OpenAPI analyzers,
 # ZAP/Burp import) actually produce.
-CWE_TO_TECHNIQUE: Dict[str, str] = {
+CWE_TO_TECHNIQUE: dict[str, str] = {
     "CWE-798": "T1552",  # Use of Hard-coded Credentials
     "CWE-522": "T1552",  # Insufficiently Protected Credentials
     "CWE-259": "T1552",  # Use of Hard-coded Password
@@ -171,7 +171,7 @@ def get_technique_info(technique_id: str) -> dict:
     }
 
 
-def technique_for_cwe(cwe_id: Optional[str]) -> Optional[Technique]:
+def technique_for_cwe(cwe_id: str | None) -> Technique | None:
     """Best-effort: map a CWE ID (e.g. 'CWE-89') to a likely ATT&CK technique."""
     if not cwe_id:
         return None

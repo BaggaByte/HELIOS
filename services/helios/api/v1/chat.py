@@ -1,13 +1,12 @@
 import logging
 import uuid
+
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from pydantic import BaseModel, ValidationError
-from typing import List, Optional
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
 from helios.core.chat.engine import ChatEngine, ChatMessage
-
 from helios.infrastructure.database import async_session_maker
 from helios.models.host import Host
 from helios.models.project import Project
@@ -20,8 +19,8 @@ router = APIRouter()
 class WSIncomingMessage(BaseModel):
     type: str = "message"
     content: str
-    message_id: Optional[str] = None
-    history: Optional[List[dict]] = None
+    message_id: str | None = None
+    history: list[dict] | None = None
 
 
 async def build_recon_context(project_id: str) -> str:
@@ -64,6 +63,7 @@ async def build_recon_context(project_id: str) -> str:
 
 
 import jwt
+
 from helios.config import get_settings
 from helios.models.user import User
 

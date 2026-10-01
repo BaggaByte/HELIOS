@@ -1,6 +1,6 @@
-import re
 import logging
-from typing import Dict, Any, List
+import re
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -18,7 +18,7 @@ PHP_SINKS = {
 }
 
 
-def analyze_php_source(code: str, filename: str = "unknown.php") -> Dict[str, Any]:
+def analyze_php_source(code: str, filename: str = "unknown.php") -> dict[str, Any]:
     """
     Parses PHP source code using regex heuristics to find vulnerabilities.
     """

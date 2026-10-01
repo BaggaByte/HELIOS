@@ -1,8 +1,8 @@
 import base64
-import json
 import binascii
-from typing import Dict, Any, List
+import json
 import logging
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -18,7 +18,7 @@ def _base64url_decode(input_str: str) -> str:
     return base64.b64decode(input_str).decode("utf-8", errors="ignore")
 
 
-def analyze_jwt(token: str) -> List[Dict[str, Any]]:
+def analyze_jwt(token: str) -> list[dict[str, Any]]:
     """
     Analyzes a JSON Web Token (JWT) for common security misconfigurations.
     """

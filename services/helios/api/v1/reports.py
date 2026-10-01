@@ -1,12 +1,12 @@
-from fastapi import APIRouter, Depends, HTTPException, Path
-from fastapi.responses import PlainTextResponse
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
-import uuid
 import logging
 
-from helios.infrastructure.database import get_db_session
+from fastapi import APIRouter, Depends, HTTPException, Path
+from fastapi.responses import PlainTextResponse
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from helios.core.reports.generator import generate_report
+from helios.infrastructure.database import get_db_session
 from helios.models.project import Project
 
 logger = logging.getLogger(__name__)

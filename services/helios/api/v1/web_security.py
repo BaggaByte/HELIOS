@@ -1,14 +1,14 @@
-from fastapi import APIRouter, UploadFile, File, HTTPException, Depends, Path
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
 import logging
-import uuid
 
-from helios.infrastructure.database import get_db_session
-from helios.models.project import Project
-from helios.models.finding import Finding
-from helios.core.web_security.parsers.zap import parse_zap_xml
+from fastapi import APIRouter, Depends, File, HTTPException, Path, UploadFile
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from helios.core.knowledge_graph.builder import sync_finding
+from helios.core.web_security.parsers.zap import parse_zap_xml
+from helios.infrastructure.database import get_db_session
+from helios.models.finding import Finding
+from helios.models.project import Project
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -166,4 +166,3 @@ async def delete_finding(
         raise HTTPException(status_code=404, detail="Finding not found")
     await db.delete(finding)
     await db.commit()
-    return None

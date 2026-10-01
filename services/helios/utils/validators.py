@@ -15,7 +15,6 @@ from __future__ import annotations
 import ipaddress
 import re
 import uuid
-from typing import Optional
 from urllib.parse import urlparse
 
 # RFC-1035-ish hostname/domain label validation
@@ -31,9 +30,7 @@ def is_valid_ip(value: str) -> bool:
     """True if `value` is a valid IPv4 or IPv6 address."""
     try:
         ip = ipaddress.ip_address(value)
-        if ip.is_unspecified:
-            return False
-        return True
+        return not ip.is_unspecified
     except (ValueError, TypeError):
         return False
 
@@ -42,9 +39,7 @@ def is_valid_cidr(value: str) -> bool:
     """True if `value` is a valid IPv4 or IPv6 network in CIDR notation."""
     try:
         net = ipaddress.ip_network(value, strict=False)
-        if net.prefixlen == 0:
-            return False
-        return True
+        return net.prefixlen != 0
     except (ValueError, TypeError):
         return False
 
@@ -64,13 +59,12 @@ def is_valid_domain(value: str) -> bool:
         return False
 
     # Strip optional leading wildcard
-    if value.startswith("*."):
-        value = value[2:]
+    value = value.removeprefix("*.")
 
     return bool(_DOMAIN_RE.match(value.rstrip(".")))
 
 
-def is_valid_url(value: str, allowed_schemes: Optional[set[str]] = None) -> bool:
+def is_valid_url(value: str, allowed_schemes: set[str] | None = None) -> bool:
     """
     True if `value` parses as an absolute URL with an allowed scheme
     (defaults to http/https) and a non-empty host.
@@ -92,7 +86,7 @@ def is_valid_uuid(value: str) -> bool:
         return False
 
 
-def detect_hash_type(value: str) -> Optional[str]:
+def detect_hash_type(value: str) -> str | None:
     """
     Return 'md5' / 'sha1' / 'sha256' / 'sha512' if `value` looks like a hex
     digest of that length, else None. Length-based only — not a guarantee
@@ -103,7 +97,7 @@ def detect_hash_type(value: str) -> Optional[str]:
     return _HASH_LENGTHS.get(len(value))
 
 
-def is_valid_hash(value: str, algo: Optional[str] = None) -> bool:
+def is_valid_hash(value: str, algo: str | None = None) -> bool:
     """True if `value` is a valid hex digest, optionally of a specific algo."""
     detected = detect_hash_type(value)
     if detected is None:
@@ -209,8 +203,6 @@ def is_target_in_scope(target: str, scope_definitions: list[str]) -> bool:
 
     if domain_match:
         # Prevent SSRF: A matching domain resolving to an unauthorized private IP is blocked
-        if has_private_ip and not ip_authorized:
-            return False
-        return True
+        return not (has_private_ip and not ip_authorized)
 
     return False

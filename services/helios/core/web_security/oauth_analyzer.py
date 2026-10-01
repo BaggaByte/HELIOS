@@ -1,10 +1,10 @@
-from typing import Dict, Any, List
-from urllib.parse import urlparse, parse_qs
+from typing import Any
+from urllib.parse import parse_qs, urlparse
 
 
 def analyze_oauth_request(
-    url: str, params: Dict[str, str] = None
-) -> List[Dict[str, Any]]:
+    url: str, params: dict[str, str] = None
+) -> list[dict[str, Any]]:
     findings = []
 
     if not params:

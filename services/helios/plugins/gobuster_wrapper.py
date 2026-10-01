@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import logging
 import re
-from typing import Any, Dict, List
+from typing import Any
 
 from helios.plugins.base import BasePlugin, PluginError
 
@@ -45,7 +45,7 @@ class GobusterPlugin(BasePlugin):
 
     # ------------------------------------------------------------------
 
-    def execute(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+    def execute(self, payload: dict[str, Any]) -> dict[str, Any]:
         target: str = payload.get("target", "").strip()
         wordlist: str = payload.get("wordlist", "").strip()
         mode: str = payload.get("mode", "dir")  # dir | dns | vhost
@@ -98,8 +98,8 @@ class GobusterPlugin(BasePlugin):
 
     # ------------------------------------------------------------------
 
-    def _parse_output(self, stdout: str, mode: str) -> List[Dict[str, Any]]:
-        hits: List[Dict[str, Any]] = []
+    def _parse_output(self, stdout: str, mode: str) -> list[dict[str, Any]]:
+        hits: list[dict[str, Any]] = []
         for line in stdout.splitlines():
             line = line.strip()
             if not line or line.startswith("=") or line.startswith("//"):

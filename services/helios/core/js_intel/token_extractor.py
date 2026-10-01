@@ -1,5 +1,4 @@
 import re
-from typing import List, Dict
 
 PATTERNS = {
     "JWT": r"ey[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}",
@@ -10,7 +9,7 @@ PATTERNS = {
 }
 
 
-def extract_tokens(js_code: str) -> List[Dict[str, str]]:
+def extract_tokens(js_code: str) -> list[dict[str, str]]:
     """
     Scans JS code for high-value secrets, API keys, and tokens.
     """

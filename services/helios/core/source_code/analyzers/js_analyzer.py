@@ -1,6 +1,6 @@
-import re
 import logging
-from typing import Dict, Any, List
+import re
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -15,7 +15,7 @@ JS_SINKS = {
 }
 
 
-def analyze_js_source(code: str, filename: str = "unknown.js") -> Dict[str, Any]:
+def analyze_js_source(code: str, filename: str = "unknown.js") -> dict[str, Any]:
     """
     Parses JavaScript source code using regex heuristics to find vulnerabilities.
     """

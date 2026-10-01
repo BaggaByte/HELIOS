@@ -1,15 +1,16 @@
-from fastapi import APIRouter, Depends, UploadFile, File, Form, HTTPException, Path
-from fastapi.responses import FileResponse, Response
-from helios.infrastructure.encryption import EncryptionManager
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
-import uuid
 import logging
 import os
+import uuid
 
-from helios.infrastructure.database import get_db_session
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Path, UploadFile
+from fastapi.responses import Response
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from helios.core.evidence.manager import save_evidence_file
 from helios.core.evidence.validator import verify_evidence
+from helios.infrastructure.database import get_db_session
+from helios.infrastructure.encryption import EncryptionManager
 from helios.models.evidence import Evidence
 from helios.models.finding import Finding
 from helios.models.project import Project
@@ -283,4 +284,3 @@ async def delete_evidence(
 
     await db.delete(evidence)
     await db.commit()
-    return None

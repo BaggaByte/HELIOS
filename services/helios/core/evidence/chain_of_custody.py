@@ -1,9 +1,10 @@
 import hashlib
 import json
+import logging
 import os
 import time
-from typing import Dict, Any, List, Optional
-import logging
+from typing import Any
+
 from filelock import FileLock
 
 logger = logging.getLogger(__name__)
@@ -46,14 +47,14 @@ class ChainOfCustody:
                 genesis["hash"] = self._compute_hash(genesis)
                 f.write(json.dumps(genesis) + "\n")
 
-    def _compute_hash(self, record: Dict[str, Any]) -> str:
+    def _compute_hash(self, record: dict[str, Any]) -> str:
         # Create a copy without the hash field to compute the hash
         record_copy = {k: v for k, v in record.items() if k != "hash"}
         # Deterministic JSON serialization
         serialized = json.dumps(record_copy, sort_keys=True)
         return hashlib.sha256(serialized.encode("utf-8")).hexdigest()
 
-    def _get_last_record(self) -> Dict[str, Any]:
+    def _get_last_record(self) -> dict[str, Any]:
         last_line = None
         with open(self.ledger_path, "r", encoding="utf-8") as f:
             for line in f:
@@ -68,9 +69,9 @@ class ChainOfCustody:
         self,
         evidence_id: str,
         action: str,
-        details: Dict[str, Any],
+        details: dict[str, Any],
         user: str = "system",
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Logs an action performed on an evidence item safely under concurrency.
         """
@@ -94,7 +95,7 @@ class ChainOfCustody:
         logger.info(f"Evidence {evidence_id} logged: {action}")
         return record
 
-    def get_evidence_events(self, evidence_id: str) -> List[Dict[str, Any]]:
+    def get_evidence_events(self, evidence_id: str) -> list[dict[str, Any]]:
         """
         Returns all ledger events for a specific evidence_id.
         """

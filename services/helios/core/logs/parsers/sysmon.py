@@ -1,9 +1,9 @@
 import xml.etree.ElementTree as ET
 from datetime import datetime
-from typing import Dict, Any, Optional
+from typing import Any
 
 
-def parse_sysmon_xml_log(xml_line: str) -> Optional[Dict[str, Any]]:
+def parse_sysmon_xml_log(xml_line: str) -> dict[str, Any] | None:
     try:
         root = ET.fromstring(xml_line)
         event_data = {}

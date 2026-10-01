@@ -1,11 +1,11 @@
 import json
 import logging
-from typing import Dict, Any
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
 
-def parse_httpx(content: str) -> Dict[str, Any]:
+def parse_httpx(content: str) -> dict[str, Any]:
     """
     Parses HTTPx JSONL output.
     Returns structured host and web service data.

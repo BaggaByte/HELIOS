@@ -25,7 +25,7 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 import chromadb
 from chromadb.config import Settings
@@ -102,18 +102,18 @@ class VectorStore:
             logger.error(f"VectorStore: decrypt failed ({exc}).")
             raise
 
-    def _decrypt_results(self, results: Dict[str, Any]) -> Dict[str, Any]:
+    def _decrypt_results(self, results: dict[str, Any]) -> dict[str, Any]:
         """Decrypt all document strings in a ChromaDB query result dict."""
         if not results or "documents" not in results:
             return results
-        decrypted_docs: List[List[str]] = []
+        decrypted_docs: list[list[str]] = []
         for doc_group in results["documents"]:
             decrypted_docs.append([self._decrypt(doc) for doc in doc_group])
         return {**results, "documents": decrypted_docs}
 
     # ── Public API ────────────────────────────────────────────────────────────
 
-    def add_finding(self, id: str, text: str, metadata: Optional[dict] = None) -> None:
+    def add_finding(self, id: str, text: str, metadata: dict | None = None) -> None:
         """
         Add a finding to the vector store.
         The embedding is generated from *plaintext*; stored document is *encrypted*.
@@ -139,7 +139,7 @@ class VectorStore:
             logger.error(f"VectorStore.add_finding failed: {exc}", exc_info=True)
             raise
 
-    def add_document(self, id: str, text: str, metadata: Optional[dict] = None) -> None:
+    def add_document(self, id: str, text: str, metadata: dict | None = None) -> None:
         """Add a parsed document to the docs collection (encrypted at rest)."""
         try:
             ef = getattr(self.docs_collection, "_embedding_function", None) or getattr(
@@ -165,14 +165,14 @@ class VectorStore:
         self,
         query: str,
         n_results: int = 3,
-        project_id: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        project_id: str | None = None,
+    ) -> dict[str, Any]:
         """
         Search for similar findings; returns decrypted documents.
         `query` is always plaintext — Chroma embeds it and matches against
         the vectors that were generated from plaintext at add-time.
         """
-        query_args: Dict[str, Any] = {"query_texts": [query], "n_results": n_results}
+        query_args: dict[str, Any] = {"query_texts": [query], "n_results": n_results}
         if project_id:
             query_args["where"] = {"project_id": project_id}
         results = self.findings_collection.query(**query_args)
@@ -182,10 +182,10 @@ class VectorStore:
         self,
         query: str,
         n_results: int = 3,
-        project_id: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        project_id: str | None = None,
+    ) -> dict[str, Any]:
         """Search for similar documents; returns decrypted documents."""
-        query_args: Dict[str, Any] = {"query_texts": [query], "n_results": n_results}
+        query_args: dict[str, Any] = {"query_texts": [query], "n_results": n_results}
         if project_id:
             query_args["where"] = {"project_id": project_id}
         results = self.docs_collection.query(**query_args)

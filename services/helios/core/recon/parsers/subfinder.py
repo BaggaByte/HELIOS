@@ -1,11 +1,11 @@
 import json
 import logging
-from typing import Dict, Any
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
 
-def parse_subfinder(content: str) -> Dict[str, Any]:
+def parse_subfinder(content: str) -> dict[str, Any]:
     """
     Parses Subfinder JSON output (JSON lines).
     Returns a list of discovered subdomains.

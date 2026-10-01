@@ -36,6 +36,7 @@ jobs:
           echo "SECRET_KEY=$(python -c 'import secrets; print(secrets.token_hex(32))')" >> .env
           echo "DEBUG=True" >> .env
           echo "DATABASE_URL=sqlite+aiosqlite:///./test_helios.db" >> .env
+          echo "CORS_ORIGINS=[\"http://localhost:3000\"]" >> .env
 
       - name: Lint with Ruff
         run: uv run ruff check helios/

@@ -11,7 +11,7 @@ Reference: https://docs.projectdiscovery.io/tools/nuclei/running
 from __future__ import annotations
 
 import logging
-from typing import Any, Dict, List
+from typing import Any
 
 from helios.plugins.base import BasePlugin, PluginError
 
@@ -48,7 +48,7 @@ class NucleiPlugin(BasePlugin):
 
     # ------------------------------------------------------------------
 
-    def execute(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+    def execute(self, payload: dict[str, Any]) -> dict[str, Any]:
         target: str = payload.get("target", "").strip()
         if not target:
             raise ValueError("'target' is required for Nuclei scan.")
@@ -57,7 +57,7 @@ class NucleiPlugin(BasePlugin):
             return self._not_available_error()
 
         # Optional: caller can pass extra args, e.g. ["-t", "cves/"]
-        extra_args: List[str] = payload.get("extra_args", [])
+        extra_args: list[str] = payload.get("extra_args", [])
         timeout: int = int(payload.get("timeout", 600))  # default 10 min
 
         cmd = [
@@ -95,8 +95,8 @@ class NucleiPlugin(BasePlugin):
 
     # ------------------------------------------------------------------
 
-    def _parse_output(self, stdout: str) -> List[Dict[str, Any]]:
-        findings: List[Dict[str, Any]] = []
+    def _parse_output(self, stdout: str) -> list[dict[str, Any]]:
+        findings: list[dict[str, Any]] = []
         for record in self.parse_jsonlines(stdout):
             info = record.get("info", {})
             severity_raw = info.get("severity", "info")

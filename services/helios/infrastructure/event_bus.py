@@ -1,6 +1,7 @@
-import logging
 import asyncio
-from typing import Dict, List, Callable, Any
+import logging
+from collections.abc import Callable
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -8,7 +9,7 @@ logger = logging.getLogger(__name__)
 # MVP Scaffold: In-memory Event Bus for local-first operations without Redis Pub/Sub
 class EventBus:
     def __init__(self):
-        self._subscribers: Dict[str, List[Callable]] = {}
+        self._subscribers: dict[str, list[Callable]] = {}
         logger.info("Initialized local in-memory Event Bus")
 
     async def publish(self, channel: str, message: Any):

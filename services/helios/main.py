@@ -1,26 +1,27 @@
 import logging
 from contextlib import asynccontextmanager
+
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from helios.config import get_settings
 from helios.api.v1 import (
     chat,
+    evidence,
     files,
-    recon,
-    web_security,
-    source_code,
+    js_intel,
+    knowledge_graph,
     logs,
     malware,
-    knowledge_graph,
-    evidence,
-    reports,
-    js_intel,
-    system,
     projects,
+    recon,
+    reports,
     search,
+    source_code,
+    system,
+    web_security,
 )
+from helios.config import get_settings
 from helios.core.chat.engine import ChatEngine
 from helios.infrastructure.database import init_db
 
@@ -102,7 +103,7 @@ class ContentLengthLimitMiddleware(BaseHTTPMiddleware):
 
         try:
             response = await call_next(request)
-        except Exception as e:
+        except Exception:
             if getattr(request.state, "payload_too_large", False):
                 return JSONResponse(
                     status_code=413,
@@ -146,10 +147,13 @@ async def global_exception_handler(request: Request, exc: Exception):
 
 
 from fastapi import Depends
+
 from helios.api.v1.auth import (
-    router as auth_router,
     get_current_user,
     require_project_access,
+)
+from helios.api.v1.auth import (
+    router as auth_router,
 )
 
 # ── Non-project-scoped routes ────────────────────────────────────────────────
@@ -207,9 +211,10 @@ app.include_router(
 )
 
 if __name__ == "__main__":
-    import uvicorn
-    import sys
     import argparse
+    import sys
+
+    import uvicorn
 
     # Check if running as packaged executable
     if getattr(sys, "frozen", False):

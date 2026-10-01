@@ -1,8 +1,9 @@
+import platform
+from typing import Any
+
+import psutil
 from fastapi import APIRouter
 from pydantic import BaseModel
-import psutil
-import platform
-from typing import Dict, Any
 
 from helios.config import get_settings
 from helios.infrastructure.openvino_runtime import OpenVINORuntime
@@ -10,12 +11,14 @@ from helios.infrastructure.openvino_runtime import OpenVINORuntime
 router = APIRouter()
 settings = get_settings()
 
+import logging
+
+from fastapi import Depends
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from fastapi import Depends
+
 from helios.infrastructure.database import get_db_session
 from helios.models.user import User
-import logging
 
 
 class SystemHealth(BaseModel):
@@ -64,11 +67,11 @@ async def health_check(db: AsyncSession = Depends(get_db_session)):
 
 from fastapi import APIRouter, Depends
 
-from helios.api.v1.auth import get_current_user, LEGACY_SYSTEM_USER_IDS
+from helios.api.v1.auth import LEGACY_SYSTEM_USER_IDS, get_current_user
 
 
 @router.get("/status", dependencies=[Depends(get_current_user)])
-async def system_status() -> Dict[str, Any]:
+async def system_status() -> dict[str, Any]:
     """Detailed system status including memory, CPU, and NPU."""
     runtime = OpenVINORuntime()
 
@@ -89,7 +92,7 @@ async def system_status() -> Dict[str, Any]:
 
 
 @router.get("/settings", dependencies=[Depends(get_current_user)])
-async def get_system_settings() -> Dict[str, Any]:
+async def get_system_settings() -> dict[str, Any]:
     """Return public system settings."""
     return {
         "app_name": settings.APP_NAME,

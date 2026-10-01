@@ -1,5 +1,4 @@
 import re
-from typing import List, Dict, Any
 
 IOC_PATTERNS = {
     "ipv4": r"\b(?:[0-9]{1,3}\.){3}[0-9]{1,3}\b",
@@ -10,7 +9,7 @@ IOC_PATTERNS = {
 }
 
 
-def extract_iocs(text: str) -> Dict[str, List[str]]:
+def extract_iocs(text: str) -> dict[str, list[str]]:
     iocs = {"ipv4": [], "md5": [], "sha1": [], "sha256": [], "url": []}
 
     for ioc_type, pattern in IOC_PATTERNS.items():

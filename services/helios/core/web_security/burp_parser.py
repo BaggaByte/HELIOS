@@ -1,8 +1,8 @@
-from typing import Dict, Any, List
 import xml.etree.ElementTree as ET
+from typing import Any
 
 
-def parse_burp_xml(xml_content: str) -> List[Dict[str, Any]]:
+def parse_burp_xml(xml_content: str) -> list[dict[str, Any]]:
     """
     Parses a Burp Suite XML report and extracts issues.
     """

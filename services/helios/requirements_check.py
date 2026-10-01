@@ -13,15 +13,14 @@ Checks:
   7. .env configuration file
 """
 
-import sys
 import shutil
-import io
+import sys
 
 # Ensure stdout can emit UTF-8 emoji on Windows cp1252 terminals
 if hasattr(sys.stdout, "reconfigure"):
     try:
         sys.stdout.reconfigure(encoding="utf-8", errors="replace")  # type: ignore[attr-defined]
-    except Exception:
+    except (AttributeError, TypeError):
         pass
 from pathlib import Path
 
@@ -32,7 +31,7 @@ def _check(label: str, fn):
         status = "✅" if result else "⚠️ "
         print(f"  {status}  {label}")
         return result
-    except Exception as exc:
+    except (ImportError, ModuleNotFoundError, AttributeError) as exc:
         print(f"  ❌  {label}  ({exc})")
         return False
 
@@ -87,7 +86,7 @@ def main() -> int:
             r = _redis.Redis(host="localhost", port=6379, socket_connect_timeout=1)
             r.ping()
             print("  ✅  Redis server reachable at localhost:6379")
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001
             print(
                 f"  ⚠️   Redis server not reachable ({exc}) — tasks will run synchronously"
             )
@@ -112,7 +111,7 @@ def main() -> int:
         print(
             f"  {'✅' if npu else '⚠️ '}  NPU {'available' if npu else 'not detected (CPU/GPU fallback)'}"
         )
-    except Exception as exc:
+    except (ImportError, RuntimeError) as exc:
         print(f"  ⚠️   openvino: {exc}")
 
     # ── Model files ───────────────────────────────────────────────────────────

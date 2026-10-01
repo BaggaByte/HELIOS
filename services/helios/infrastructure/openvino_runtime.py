@@ -12,10 +12,10 @@ services/ working directory where uvicorn is started from.
 
 import asyncio
 import logging
-import os
+from collections.abc import AsyncIterator
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, AsyncIterator, Optional, Dict
+from typing import Any, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -71,7 +71,7 @@ class OpenVINORuntime:
 
         self.model_path: str = settings.OV_MODEL_PATH
         self.device: str = settings.OV_DEVICE
-        self.pipeline: Optional[Any] = None
+        self.pipeline: Any | None = None
         self._initialized = True
 
         model_dir = Path(self.model_path)
@@ -167,7 +167,7 @@ class OpenVINORuntime:
     async def generate_stream(
         self,
         prompt: str,
-        config: Optional[GenerationConfig] = None,
+        config: GenerationConfig | None = None,
     ) -> AsyncIterator[str]:
         """
         Stream generated tokens for *prompt*.
@@ -192,7 +192,7 @@ class OpenVINORuntime:
                 await asyncio.sleep(0.04)
             return
 
-        token_queue: asyncio.Queue[Optional[str]] = asyncio.Queue()
+        token_queue: asyncio.Queue[str | None] = asyncio.Queue()
         loop = asyncio.get_running_loop()
 
         def _streamer_callback(token_text: str) -> bool:
@@ -236,7 +236,7 @@ class OpenVINORuntime:
 
         await inference_task
 
-    def get_status(self) -> Dict[str, Any]:
+    def get_status(self) -> dict[str, Any]:
         return {
             "device": self.device,
             "model_path": self.model_path,

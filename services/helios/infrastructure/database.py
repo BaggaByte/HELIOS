@@ -1,7 +1,8 @@
 import asyncio
-from typing import AsyncGenerator, Any
+from collections.abc import AsyncGenerator
+from typing import Any
 
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
+from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
 
 from helios.config import get_settings
@@ -19,7 +20,7 @@ engine = create_async_engine(settings.DATABASE_URL, **_engine_kwargs)
 async_session_maker = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 
 
-async def get_db_session() -> AsyncGenerator[AsyncSession, None]:
+async def get_db_session() -> AsyncGenerator[AsyncSession]:
     async with async_session_maker() as session:
         try:
             yield session
@@ -34,9 +35,11 @@ async def get_db_session() -> AsyncGenerator[AsyncSession, None]:
 async def init_db() -> None:
     # Run Alembic migrations programmatically
     import logging
-    from alembic.config import Config
-    from alembic import command
     import pathlib
+
+    from alembic.config import Config
+
+    from alembic import command
 
     logger = logging.getLogger(__name__)
 

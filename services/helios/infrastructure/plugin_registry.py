@@ -1,5 +1,4 @@
 import logging
-from typing import Dict, List
 
 from helios.plugins.base import BasePlugin
 from helios.plugins.loader import discover_plugins
@@ -14,7 +13,7 @@ class PluginRegistry:
 
     def __new__(cls):
         if cls._instance is None:
-            cls._instance = super(PluginRegistry, cls).__new__(cls)
+            cls._instance = super().__new__(cls)
             cls._instance._plugins = {}
             cls._instance._is_loaded = False
         return cls._instance
@@ -49,7 +48,7 @@ class PluginRegistry:
         """Retrieve a specific plugin by name."""
         return self._plugins.get(name)
 
-    def list_plugins(self) -> List[Dict[str, str]]:
+    def list_plugins(self) -> list[dict[str, str]]:
         """List metadata for all active plugins."""
         return [
             {"name": p.name, "version": p.version, "description": p.description}

@@ -1,8 +1,8 @@
 import json
-from typing import Dict, Any
+from typing import Any
 
 
-def parse_ffuf(content: str) -> Dict[str, Any]:
+def parse_ffuf(content: str) -> dict[str, Any]:
     """
     Parses FFUF JSON output.
     """

@@ -1,5 +1,4 @@
-from typing import List, Dict, Any
-
+from typing import Any
 
 # Severity weights used for the composite risk score (CVSS v3-aligned).
 # The score is a weighted combination of finding severity distribution and
@@ -13,7 +12,7 @@ _SEVERITY_WEIGHTS = {
 }
 
 
-def calculate_project_risk(findings: List[Any]) -> Dict[str, Any]:
+def calculate_project_risk(findings: list[Any]) -> dict[str, Any]:
     """
     Calculate the overall project risk from a list of Finding ORM objects.
 
@@ -45,7 +44,7 @@ def calculate_project_risk(findings: List[Any]) -> Dict[str, Any]:
             "counts": {"critical": 0, "high": 0, "medium": 0, "low": 0, "info": 0},
         }
 
-    counts: Dict[str, int] = {
+    counts: dict[str, int] = {
         "critical": 0,
         "high": 0,
         "medium": 0,

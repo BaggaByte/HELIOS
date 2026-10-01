@@ -1,8 +1,8 @@
-import xml.etree.ElementTree as ET
 import logging
-from typing import List, Dict, Any, Optional, Union
-from dataclasses import dataclass, field, asdict
+import xml.etree.ElementTree as ET
+from dataclasses import asdict, dataclass, field
 from datetime import datetime
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -12,16 +12,16 @@ class Service:
     port: int
     protocol: str
     state: str = "open"
-    name: Optional[str] = None
-    product: Optional[str] = None
-    version: Optional[str] = None
-    extrainfo: Optional[str] = None
-    tunnel: Optional[str] = None  # e.g. ssl
-    method: Optional[str] = None  # e.g. probed
-    conf: Optional[int] = None  # confidence
-    cpe: List[str] = field(default_factory=list)
-    scripts: Dict[str, str] = field(default_factory=dict)  # script_id -> output
-    banner: Optional[str] = None
+    name: str | None = None
+    product: str | None = None
+    version: str | None = None
+    extrainfo: str | None = None
+    tunnel: str | None = None  # e.g. ssl
+    method: str | None = None  # e.g. probed
+    conf: int | None = None  # confidence
+    cpe: list[str] = field(default_factory=list)
+    scripts: dict[str, str] = field(default_factory=dict)  # script_id -> output
+    banner: str | None = None
 
     @property
     def version_string(self) -> str:
@@ -32,30 +32,30 @@ class Service:
 @dataclass
 class Host:
     ip: str
-    ipv6: Optional[str] = None
-    mac: Optional[str] = None
-    vendor: Optional[str] = None
-    hostnames: List[str] = field(default_factory=list)
+    ipv6: str | None = None
+    mac: str | None = None
+    vendor: str | None = None
+    hostnames: list[str] = field(default_factory=list)
     status: str = "up"
-    reason: Optional[str] = None
-    os: Optional[str] = None
-    os_accuracy: Optional[int] = None
-    os_family: Optional[str] = None
-    os_gen: Optional[str] = None
-    os_cpe: List[str] = field(default_factory=list)
-    services: List[Service] = field(default_factory=list)
-    host_scripts: Dict[str, str] = field(default_factory=dict)  # host-level scripts
-    start_time: Optional[datetime] = None
-    end_time: Optional[datetime] = None
-    distance: Optional[int] = None  # hop distance
-    uptime: Optional[int] = None  # seconds
-    lastboot: Optional[str] = None
+    reason: str | None = None
+    os: str | None = None
+    os_accuracy: int | None = None
+    os_family: str | None = None
+    os_gen: str | None = None
+    os_cpe: list[str] = field(default_factory=list)
+    services: list[Service] = field(default_factory=list)
+    host_scripts: dict[str, str] = field(default_factory=dict)  # host-level scripts
+    start_time: datetime | None = None
+    end_time: datetime | None = None
+    distance: int | None = None  # hop distance
+    uptime: int | None = None  # seconds
+    lastboot: str | None = None
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return asdict(self)
 
 
-def _safe_int(value: Optional[str]) -> Optional[int]:
+def _safe_int(value: str | None) -> int | None:
     if value is None:
         return None
     try:
@@ -64,7 +64,7 @@ def _safe_int(value: Optional[str]) -> Optional[int]:
         return None
 
 
-def _parse_timestamp(ts: Optional[str]) -> Optional[datetime]:
+def _parse_timestamp(ts: str | None) -> datetime | None:
     if not ts:
         return None
     try:
@@ -74,12 +74,12 @@ def _parse_timestamp(ts: Optional[str]) -> Optional[datetime]:
 
 
 def parse_nmap_xml(
-    xml_content: Union[bytes, str],
+    xml_content: bytes | str,
     *,
     include_closed: bool = False,
     include_filtered: bool = False,
     only_open: bool = True,
-) -> List[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     """
     Advanced Nmap XML parser.
 
@@ -118,7 +118,7 @@ def parse_nmap_xml(
         "xmloutputversion": root.get("xmloutputversion"),
     }
 
-    hosts: List[Host] = []
+    hosts: list[Host] = []
 
     for host_elem in root.findall("host"):
         # ----- Status -----
@@ -152,7 +152,7 @@ def parse_nmap_xml(
         primary_ip = ipv4 or ipv6
 
         # ----- Hostnames -----
-        hostnames: List[str] = []
+        hostnames: list[str] = []
         hostnames_elem = host_elem.find("hostnames")
         if hostnames_elem is not None:
             for hn in hostnames_elem.findall("hostname"):
@@ -165,7 +165,7 @@ def parse_nmap_xml(
         os_accuracy = None
         os_family = None
         os_gen = None
-        os_cpe: List[str] = []
+        os_cpe: list[str] = []
 
         os_elem = host_elem.find("os")
         if os_elem is not None:
@@ -214,7 +214,7 @@ def parse_nmap_xml(
             lastboot = uptime_elem.get("lastboot")
 
         # ----- Ports / Services -----
-        services: List[Service] = []
+        services: list[Service] = []
         ports_elem = host_elem.find("ports")
         if ports_elem is not None:
             for port_elem in ports_elem.findall("port"):
@@ -269,7 +269,7 @@ def parse_nmap_xml(
                 services.append(svc)
 
         # ----- Host-level scripts -----
-        host_scripts: Dict[str, str] = {}
+        host_scripts: dict[str, str] = {}
         hostscript_elem = host_elem.find("hostscript")
         if hostscript_elem is not None:
             for script in hostscript_elem.findall("script"):
@@ -326,7 +326,7 @@ def parse_nmap_xml(
 # ---------------------------------------------------------------------------
 
 
-def get_open_ports(hosts: List[Dict[str, Any]]) -> Dict[str, List[int]]:
+def get_open_ports(hosts: list[dict[str, Any]]) -> dict[str, list[int]]:
     """Return {ip: [open_ports]} mapping."""
     return {
         h["ip"]: [s["port"] for s in h.get("services", []) if s.get("state") == "open"]
@@ -335,8 +335,8 @@ def get_open_ports(hosts: List[Dict[str, Any]]) -> Dict[str, List[int]]:
 
 
 def filter_by_service(
-    hosts: List[Dict[str, Any]], service_name: str
-) -> List[Dict[str, Any]]:
+    hosts: list[dict[str, Any]], service_name: str
+) -> list[dict[str, Any]]:
     """Return only hosts that have a given service name open."""
     service_name = service_name.lower()
     filtered = []
@@ -354,7 +354,7 @@ def filter_by_service(
     return filtered
 
 
-def pretty_print_hosts(hosts: List[Dict[str, Any]]) -> None:
+def pretty_print_hosts(hosts: list[dict[str, Any]]) -> None:
     """Simple human-readable summary."""
     for h in hosts:
         print(f"\n[{h['ip']}]  {', '.join(h.get('hostnames') or ['-'])}")

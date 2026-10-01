@@ -10,7 +10,7 @@ Reference: https://github.com/owasp-amass/amass
 from __future__ import annotations
 
 import logging
-from typing import Any, Dict, List
+from typing import Any
 
 from helios.plugins.base import BasePlugin, PluginError
 
@@ -37,7 +37,7 @@ class AmassPlugin(BasePlugin):
 
     # ------------------------------------------------------------------
 
-    def execute(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+    def execute(self, payload: dict[str, Any]) -> dict[str, Any]:
         target: str = payload.get("target", "").strip()
         if not target:
             raise ValueError("'target' domain is required for Amass.")
@@ -81,8 +81,8 @@ class AmassPlugin(BasePlugin):
 
     # ------------------------------------------------------------------
 
-    def _parse_output(self, stdout: str) -> List[Dict[str, Any]]:
-        results: List[Dict[str, Any]] = []
+    def _parse_output(self, stdout: str) -> list[dict[str, Any]]:
+        results: list[dict[str, Any]] = []
         seen: set = set()
         for record in self.parse_jsonlines(stdout):
             name = record.get("name", "")

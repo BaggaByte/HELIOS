@@ -11,7 +11,7 @@ Reference: https://docs.projectdiscovery.io/tools/httpx/running
 from __future__ import annotations
 
 import logging
-from typing import Any, Dict, List
+from typing import Any
 
 from helios.plugins.base import BasePlugin, PluginError
 
@@ -38,7 +38,7 @@ class HttpxPlugin(BasePlugin):
 
     # ------------------------------------------------------------------
 
-    def execute(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+    def execute(self, payload: dict[str, Any]) -> dict[str, Any]:
         target: str = payload.get("target", "").strip()
         if not target:
             raise ValueError("'target' URL or host is required for httpx.")
@@ -84,8 +84,8 @@ class HttpxPlugin(BasePlugin):
 
     # ------------------------------------------------------------------
 
-    def _parse_output(self, stdout: str) -> List[Dict[str, Any]]:
-        results: List[Dict[str, Any]] = []
+    def _parse_output(self, stdout: str) -> list[dict[str, Any]]:
+        results: list[dict[str, Any]] = []
         for record in self.parse_jsonlines(stdout):
             results.append(
                 {

@@ -13,7 +13,7 @@ from __future__ import annotations
 import json
 import logging
 import os
-from typing import Any, Dict, List
+from typing import Any
 
 from helios.plugins.base import BasePlugin, PluginError
 
@@ -40,7 +40,7 @@ class DirsearchPlugin(BasePlugin):
 
     # ------------------------------------------------------------------
 
-    def execute(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+    def execute(self, payload: dict[str, Any]) -> dict[str, Any]:
         target: str = payload.get("target", "").strip()
         if not target:
             raise ValueError("'target' URL is required for Dirsearch.")
@@ -99,14 +99,14 @@ class DirsearchPlugin(BasePlugin):
 
     # ------------------------------------------------------------------
 
-    def _parse_output_file(self, path: str) -> List[Dict[str, Any]]:
+    def _parse_output_file(self, path: str) -> list[dict[str, Any]]:
         try:
             with open(path, "r", encoding="utf-8", errors="replace") as fh:
                 data = json.load(fh)
         except (OSError, json.JSONDecodeError):
             return []
 
-        hits: List[Dict[str, Any]] = []
+        hits: list[dict[str, Any]] = []
         results = data.get("results", {})
         # results may be a dict of {url: [hit, ...]} or a flat list
         if isinstance(results, dict):

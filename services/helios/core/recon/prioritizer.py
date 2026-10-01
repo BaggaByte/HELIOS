@@ -15,7 +15,7 @@ The output schema is unchanged so existing callers don't need to update.
 from __future__ import annotations
 
 import logging
-from typing import Any, Dict, List
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -43,9 +43,9 @@ class RiskPrioritizer:
 
     def calculate_risk(
         self,
-        host_data: Dict[str, Any],
-        attack_surface: Dict[str, Any],
-    ) -> Dict[str, Any]:
+        host_data: dict[str, Any],
+        attack_surface: dict[str, Any],
+    ) -> dict[str, Any]:
         """
         Calculates a contextual risk score (0-10) for a discovered host.
 
@@ -61,11 +61,11 @@ class RiskPrioritizer:
                 outdated_services        : list[str]   (service banners)
         """
         score = 0.0
-        reasons: List[str] = []
+        reasons: list[str] = []
 
-        exposed_ports: List[int] = attack_surface.get("exposed_high_value_ports", [])
-        web_ports: List[int] = attack_surface.get("potential_web_services", [])
-        outdated: List[str] = attack_surface.get("outdated_services", [])
+        exposed_ports: list[int] = attack_surface.get("exposed_high_value_ports", [])
+        web_ports: list[int] = attack_surface.get("potential_web_services", [])
+        outdated: list[str] = attack_surface.get("outdated_services", [])
 
         # ------------------------------------------------------------------
         # 1. Database port exposure (highest weight — direct data risk)

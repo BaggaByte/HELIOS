@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import logging
 import re
-from typing import Any, Dict, List
+from typing import Any
 
 from helios.plugins.base import BasePlugin, PluginError
 
@@ -42,7 +42,7 @@ class RustscanPlugin(BasePlugin):
 
     # ------------------------------------------------------------------
 
-    def execute(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+    def execute(self, payload: dict[str, Any]) -> dict[str, Any]:
         target: str = payload.get("target", "").strip()
         if not target:
             raise ValueError("'target' IP/CIDR is required for RustScan.")
@@ -89,13 +89,13 @@ class RustscanPlugin(BasePlugin):
 
     # ------------------------------------------------------------------
 
-    def _parse_output(self, stdout: str, target: str) -> List[Dict[str, Any]]:
+    def _parse_output(self, stdout: str, target: str) -> list[dict[str, Any]]:
         """
         RustScan --accessible prints lines like:
           Open 192.168.1.1:80
         or just the port number when scanning a single host.
         """
-        results: List[Dict[str, Any]] = []
+        results: list[dict[str, Any]] = []
         for line in stdout.splitlines():
             line = line.strip()
             if line.startswith("Open "):

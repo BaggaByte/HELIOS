@@ -1,4 +1,5 @@
-from typing import Dict, Any
+from typing import Any
+
 from helios.core.source_code.pattern_matcher import run_pattern_matcher
 
 JAVA_RULES = {
@@ -9,5 +10,5 @@ JAVA_RULES = {
 }
 
 
-def analyze_java_source(code: str, filename: str = "unknown.java") -> Dict[str, Any]:
+def analyze_java_source(code: str, filename: str = "unknown.java") -> dict[str, Any]:
     return run_pattern_matcher(code, "java", filename, JAVA_RULES)

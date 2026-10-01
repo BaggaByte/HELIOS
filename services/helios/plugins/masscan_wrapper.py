@@ -11,10 +11,9 @@ Reference: https://github.com/robertdavidgraham/masscan
 
 from __future__ import annotations
 
-import json
 import logging
 import os
-from typing import Any, Dict, List
+from typing import Any
 
 from helios.plugins.base import BasePlugin, PluginError
 
@@ -44,7 +43,7 @@ class MasscanPlugin(BasePlugin):
 
     # ------------------------------------------------------------------
 
-    def execute(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+    def execute(self, payload: dict[str, Any]) -> dict[str, Any]:
         target: str = payload.get("target", "").strip()
         if not target:
             raise ValueError("'target' IP/CIDR is required for Masscan.")
@@ -100,13 +99,13 @@ class MasscanPlugin(BasePlugin):
 
     # ------------------------------------------------------------------
 
-    def _parse_output_file(self, path: str) -> List[Dict[str, Any]]:
+    def _parse_output_file(self, path: str) -> list[dict[str, Any]]:
         """
         Masscan JSON output looks like:
           { "ip": "1.2.3.4", "timestamp": "...", "ports": [{"port":80,"proto":"tcp","status":"open",...}] }
           ...  (one JSON object per line, NOT a valid JSON array)
         """
-        results: List[Dict[str, Any]] = []
+        results: list[dict[str, Any]] = []
         try:
             with open(path, "r", encoding="utf-8", errors="replace") as fh:
                 raw = fh.read()

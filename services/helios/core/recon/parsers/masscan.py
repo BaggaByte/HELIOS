@@ -1,8 +1,8 @@
 import json
-from typing import Dict, Any
+from typing import Any
 
 
-def parse_masscan(content: str) -> Dict[str, Any]:
+def parse_masscan(content: str) -> dict[str, Any]:
     """
     Parses Masscan JSON output.
     Returns standard HELIOS recon format.

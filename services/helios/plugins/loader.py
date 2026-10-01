@@ -1,17 +1,14 @@
 import importlib
-import pkgutil
 import inspect
 import logging
-from typing import List, Type
-import sys
-from pathlib import Path
+import pkgutil
 
 from helios.plugins.base import BasePlugin
 
 logger = logging.getLogger(__name__)
 
 
-def discover_plugins(package_name: str = "helios.plugins") -> List[Type[BasePlugin]]:
+def discover_plugins(package_name: str = "helios.plugins") -> list[type[BasePlugin]]:
     """
     Dynamically discover all classes inheriting from BasePlugin in the given package.
     """

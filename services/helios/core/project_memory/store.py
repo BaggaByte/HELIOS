@@ -1,14 +1,14 @@
 import logging
-from typing import Dict, List, Any
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
 # MVP: In-memory store for project context.
 # In a real implementation, this would be backed by the database.
-_memory_store: Dict[str, Dict[str, Any]] = {}
+_memory_store: dict[str, dict[str, Any]] = {}
 
 
-def get_project_context(project_id: str) -> Dict[str, Any]:
+def get_project_context(project_id: str) -> dict[str, Any]:
     """Retrieve the memory context for a given project."""
     if project_id not in _memory_store:
         _memory_store[project_id] = {

@@ -1,11 +1,11 @@
 import json
 import logging
-from typing import Dict, Any
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
 
-def parse_katana(content: str) -> Dict[str, Any]:
+def parse_katana(content: str) -> dict[str, Any]:
     """
     Parses Katana JSONL output.
     Returns a list of discovered URLs/endpoints.

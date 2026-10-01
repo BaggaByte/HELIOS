@@ -1,6 +1,6 @@
 import ast
 import logging
-from typing import Dict, Any, List
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -73,7 +73,7 @@ class SecurityASTVisitor(ast.NodeVisitor):
         self.generic_visit(node)
 
 
-def analyze_python_source(code: str, filename: str = "unknown.py") -> Dict[str, Any]:
+def analyze_python_source(code: str, filename: str = "unknown.py") -> dict[str, Any]:
     """
     Parses Python source code using AST and extracts intelligence.
     """

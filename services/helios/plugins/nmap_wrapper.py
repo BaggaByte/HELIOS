@@ -1,8 +1,7 @@
+import logging
 import subprocess
 import xml.etree.ElementTree as ET
-import logging
-import json
-from typing import Dict, Any
+from typing import Any
 
 from helios.plugins.base import BasePlugin
 
@@ -24,7 +23,7 @@ class NmapPlugin(BasePlugin):
             "Wrapper for Nmap network scanner. Parses XML output into structured data."
         )
 
-    def execute(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+    def execute(self, payload: dict[str, Any]) -> dict[str, Any]:
         """
         Executes an Nmap scan.
         payload = {
@@ -80,7 +79,7 @@ class NmapPlugin(BasePlugin):
         except Exception as e:
             return {"status": "error", "error": str(e)}
 
-    def _parse_nmap_xml(self, xml_string: str) -> Dict[str, Any]:
+    def _parse_nmap_xml(self, xml_string: str) -> dict[str, Any]:
         """Parses nmap -oX output into a structured dictionary."""
         if not xml_string.strip().startswith(
             "<?xml"

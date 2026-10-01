@@ -1,11 +1,12 @@
-import os
 import hashlib
+import os
 import uuid
-import shutil
 from pathlib import Path
-from fastapi import UploadFile, HTTPException, status
-from helios.infrastructure.encryption import EncryptionManager
+
+from fastapi import HTTPException, UploadFile, status
+
 from helios.config import get_settings
+from helios.infrastructure.encryption import EncryptionManager
 
 settings = get_settings()
 EVIDENCE_DIR = Path(settings.UPLOAD_DIR) / "evidence"

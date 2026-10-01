@@ -1,15 +1,15 @@
-from pydantic import BaseModel
-from typing import Optional
 from datetime import datetime
+
+from pydantic import BaseModel
 
 
 class ChatMessage(BaseModel):
     role: str
     content: str
-    timestamp: Optional[datetime] = None
+    timestamp: datetime | None = None
 
 
 class ChatResponse(BaseModel):
     type: str  # "token", "error", "done"
-    content: Optional[str] = None
-    error: Optional[str] = None
+    content: str | None = None
+    error: str | None = None

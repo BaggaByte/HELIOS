@@ -1,10 +1,9 @@
-import secrets
 import os
 import platform
+import secrets
 import sys
-from pathlib import Path
 from functools import lru_cache
-from typing import List
+from pathlib import Path
 
 from pydantic import field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -58,7 +57,7 @@ class Settings(BaseSettings):
 
     # ── CORS ──────────────────────────────────────────────────────────────────
     # Comma-separated list in .env: CORS_ORIGINS=http://localhost:5173,tauri://localhost
-    CORS_ORIGINS: List[str] = [
+    CORS_ORIGINS: list[str] = [
         "http://localhost:5173",
         "http://localhost:3000",
         "tauri://localhost",

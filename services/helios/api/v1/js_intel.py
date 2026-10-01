@@ -1,6 +1,7 @@
-from fastapi import APIRouter, HTTPException, UploadFile, File, Path
-from pydantic import BaseModel
 import logging
+
+from fastapi import APIRouter, File, HTTPException, Path, UploadFile
+from pydantic import BaseModel
 
 from helios.core.js_intel.extractor import analyze_js
 

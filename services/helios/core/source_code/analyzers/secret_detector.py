@@ -1,6 +1,6 @@
-import re
-from typing import List, Dict, Any
 import logging
+import re
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -39,7 +39,7 @@ SECRET_RULES = [
 ]
 
 
-def scan_text(content: str, filename: str) -> List[Dict[str, Any]]:
+def scan_text(content: str, filename: str) -> list[dict[str, Any]]:
     """Scans text content line-by-line for secrets based on regex rules."""
     findings = []
     lines = content.splitlines()

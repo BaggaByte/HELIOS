@@ -1,7 +1,7 @@
-from typing import Dict, Any, List
+from typing import Any
 
 
-def analyze_saml_response(xml_data: str) -> List[Dict[str, Any]]:
+def analyze_saml_response(xml_data: str) -> list[dict[str, Any]]:
     findings = []
     xml_lower = xml_data.lower()
 

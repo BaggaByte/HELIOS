@@ -1,11 +1,11 @@
-from typing import Dict, Any, List
 import json
 import logging
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
 
-def build_dependency_graph(file_content: str, filename: str) -> Dict[str, Any]:
+def build_dependency_graph(file_content: str, filename: str) -> dict[str, Any]:
     """
     Parses manifest files (package.json, requirements.txt) and extracts dependencies.
     """

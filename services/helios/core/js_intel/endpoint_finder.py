@@ -1,12 +1,11 @@
 import re
-from typing import List
 
 ENDPOINT_REGEX = re.compile(
     r"""(?i)(?:(?:https?|ftp)://[^\s"'<>]+|(?:/[a-z0-9\-._~%!$&'()*+,;=:@]+)+/?)"""
 )
 
 
-def find_endpoints(js_code: str) -> List[str]:
+def find_endpoints(js_code: str) -> list[str]:
     """
     Extracts URLs and absolute/relative paths from JS code that might be API endpoints.
     """

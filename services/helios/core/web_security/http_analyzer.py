@@ -1,13 +1,13 @@
-from typing import Dict, Any, List
-import re
 import logging
+import re
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
 
 def analyze_http_response(
-    headers: Dict[str, str], url: str = ""
-) -> List[Dict[str, Any]]:
+    headers: dict[str, str], url: str = ""
+) -> list[dict[str, Any]]:
     """
     Analyzes HTTP response headers for security misconfigurations.
     """

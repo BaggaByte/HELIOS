@@ -19,7 +19,7 @@ automatically from recon/finding data. That's what this module does.
 
 from __future__ import annotations
 
-from typing import Any, Dict, Optional
+from typing import Any
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -30,7 +30,7 @@ from helios.models.knowledge_node import KnowledgeNode
 
 async def _find_node_by_key(
     db: AsyncSession, project_id: str, node_type: str, key: str
-) -> Optional[KnowledgeNode]:
+) -> KnowledgeNode | None:
     """
     Look up an existing node by its caller-assigned `_key` (stored in
     `properties`). SQLite's JSON support varies across builds, so this
@@ -55,7 +55,7 @@ async def upsert_node(
     node_type: str,
     label: str,
     key: str,
-    properties: Optional[Dict[str, Any]] = None,
+    properties: dict[str, Any] | None = None,
 ) -> KnowledgeNode:
     """
     Idempotently create-or-update a knowledge graph node.
@@ -89,7 +89,7 @@ async def upsert_edge(
     source: KnowledgeNode,
     target: KnowledgeNode,
     relation: str,
-    properties: Optional[Dict[str, Any]] = None,
+    properties: dict[str, Any] | None = None,
     confidence: float = 1.0,
 ) -> KnowledgeEdge:
     """Idempotently create-or-update an edge between two existing nodes."""
@@ -161,8 +161,8 @@ async def sync_finding(
     db: AsyncSession,
     project_id: str,
     finding,
-    service_node: Optional[KnowledgeNode] = None,
-    host_node: Optional[KnowledgeNode] = None,
+    service_node: KnowledgeNode | None = None,
+    host_node: KnowledgeNode | None = None,
 ) -> KnowledgeNode:
     """
     Upsert a Finding row as a node, linked to its parent via HAS_FINDING.

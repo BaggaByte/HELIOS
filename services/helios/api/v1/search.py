@@ -1,13 +1,12 @@
-from fastapi import APIRouter, Query, HTTPException, Depends, Path
+
+from fastapi import APIRouter, Depends, HTTPException, Path, Query
+from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, or_
-from typing import Optional
-import uuid
 
 from helios.infrastructure.database import get_db_session
-from helios.models.project import Project
 from helios.models.finding import Finding
 from helios.models.host import Host
+from helios.models.project import Project
 
 router = APIRouter()
 
@@ -24,7 +23,7 @@ async def get_project_or_404(project_id: str, db: AsyncSession) -> Project:
 async def global_search(
     project_id: str = Path(...),
     q: str = Query(..., min_length=2, description="Search query"),
-    type: Optional[str] = Query(None, description="Filter: finding | host"),
+    type: str | None = Query(None, description="Filter: finding | host"),
     db: AsyncSession = Depends(get_db_session),
 ):
     await get_project_or_404(project_id, db)

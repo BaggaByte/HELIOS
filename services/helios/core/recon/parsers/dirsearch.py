@@ -1,11 +1,11 @@
 import json
 import logging
-from typing import Dict, Any
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
 
-def parse_dirsearch(content: str) -> Dict[str, Any]:
+def parse_dirsearch(content: str) -> dict[str, Any]:
     """
     Parses Dirsearch JSON output.
     Returns a list of discovered directories/files.

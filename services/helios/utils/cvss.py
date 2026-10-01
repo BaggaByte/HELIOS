@@ -12,9 +12,7 @@ blank. This implements the official CVSS v3.1 base-score algorithm
 from __future__ import annotations
 
 import math
-import re
 from dataclasses import dataclass
-from typing import Dict
 
 # ── Metric weight tables (CVSS v3.1 spec) ────────────────────────────────────
 
@@ -51,18 +49,18 @@ def _roundup(value: float) -> float:
     return (math.floor(int_value / 10000) + 1) / 10.0
 
 
-def parse_vector(vector: str) -> Dict[str, str]:
+def parse_vector(vector: str) -> dict[str, str]:
     """Parse a 'CVSS:3.1/AV:N/AC:L/...' vector string into a metric dict."""
     if not vector:
         raise ValueError("Empty CVSS vector")
 
     vector = vector.strip()
-    if vector.startswith("CVSS:3.1/") or vector.startswith("CVSS:3.0/"):
+    if vector.startswith(("CVSS:3.1/", "CVSS:3.0/")):
         vector = vector.split("/", 1)[1]
     elif vector.startswith("CVSS:"):
         raise ValueError(f"Unsupported CVSS version in vector: {vector!r}")
 
-    metrics: Dict[str, str] = {}
+    metrics: dict[str, str] = {}
     for part in vector.split("/"):
         if not part:
             continue

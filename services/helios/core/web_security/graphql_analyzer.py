@@ -1,7 +1,7 @@
-from typing import Dict, Any, List
+from typing import Any
 
 
-def analyze_graphql_schema(schema_json: str) -> List[Dict[str, Any]]:
+def analyze_graphql_schema(schema_json: str) -> list[dict[str, Any]]:
     findings = []
 
     if "__schema" in schema_json or "IntrospectionQuery" in schema_json:

@@ -12,13 +12,12 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import shutil
 import subprocess
 import tempfile
-import os
 from abc import ABC, abstractmethod
-from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -56,7 +55,7 @@ class BasePlugin(ABC):
         """One-line description of what the plugin does."""
 
     @abstractmethod
-    def execute(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+    def execute(self, payload: dict[str, Any]) -> dict[str, Any]:
         """
         Main execution entry-point.
         `payload` is the request body passed by the caller.
@@ -78,12 +77,12 @@ class BasePlugin(ABC):
 
     @staticmethod
     def run_subprocess(
-        cmd: List[str],
+        cmd: list[str],
         timeout: int = DEFAULT_TIMEOUT,
-        cwd: Optional[str] = None,
-        env: Optional[Dict[str, str]] = None,
-        input_data: Optional[bytes] = None,
-    ) -> Tuple[int, str, str]:
+        cwd: str | None = None,
+        env: dict[str, str] | None = None,
+        input_data: bytes | None = None,
+    ) -> tuple[int, str, str]:
         """
         Run *cmd* as a subprocess, capturing stdout/stderr.
 
@@ -135,12 +134,12 @@ class BasePlugin(ABC):
     # ------------------------------------------------------------------
 
     @staticmethod
-    def parse_jsonlines(text: str) -> List[Dict[str, Any]]:
+    def parse_jsonlines(text: str) -> list[dict[str, Any]]:
         """
         Parse a newline-delimited JSON stream (common in Go security tools).
         Silently skips malformed lines.
         """
-        results: List[Dict[str, Any]] = []
+        results: list[dict[str, Any]] = []
         for line in text.splitlines():
             line = line.strip()
             if not line:
@@ -155,7 +154,7 @@ class BasePlugin(ABC):
     # Shared helper: severity normaliser
     # ------------------------------------------------------------------
 
-    _SEVERITY_MAP: Dict[str, str] = {
+    _SEVERITY_MAP: dict[str, str] = {
         "critical": "critical",
         "crit": "critical",
         "high": "high",
@@ -177,7 +176,7 @@ class BasePlugin(ABC):
     # Shared helper: not-available error response
     # ------------------------------------------------------------------
 
-    def _not_available_error(self) -> Dict[str, Any]:
+    def _not_available_error(self) -> dict[str, Any]:
         return {
             "status": "error",
             "error": (
@@ -188,7 +187,7 @@ class BasePlugin(ABC):
             "version": self.version,
         }
 
-    def _plugin_error(self, exc: Exception) -> Dict[str, Any]:
+    def _plugin_error(self, exc: Exception) -> dict[str, Any]:
         logger.error(f"[{self.name}] execution failed: {exc}", exc_info=True)
         return {
             "status": "error",

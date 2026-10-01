@@ -1,7 +1,7 @@
-from typing import Dict, Any, List
+from typing import Any
 
 
-def map_event_to_mitre(event_data: Dict[str, Any]) -> List[str]:
+def map_event_to_mitre(event_data: dict[str, Any]) -> list[str]:
     """
     Returns a list of MITRE ATT&CK tactic IDs based on heuristics.
     """

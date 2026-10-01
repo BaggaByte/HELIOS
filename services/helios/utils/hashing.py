@@ -12,7 +12,6 @@ from __future__ import annotations
 
 import hashlib
 from pathlib import Path
-from typing import Dict, Union
 
 _CHUNK_SIZE = 1024 * 1024  # 1 MiB — keeps memory flat for large binaries/PCAPs
 
@@ -28,7 +27,7 @@ def hash_bytes(data: bytes, algo: str = "sha256") -> str:
     return h.hexdigest()
 
 
-def hash_file(path: Union[str, Path], algo: str = "sha256") -> str:
+def hash_file(path: str | Path, algo: str = "sha256") -> str:
     """Stream-hash a file on disk without loading it fully into memory."""
     if algo not in SUPPORTED_ALGOS:
         raise ValueError(f"Unsupported hash algorithm: {algo!r}")
@@ -39,7 +38,7 @@ def hash_file(path: Union[str, Path], algo: str = "sha256") -> str:
     return h.hexdigest()
 
 
-def hash_all(data: bytes) -> Dict[str, str]:
+def hash_all(data: bytes) -> dict[str, str]:
     """
     Compute md5 + sha1 + sha256 + sha512 of `data` in a single pass.
     Convenient for malware triage / evidence records that store every
@@ -51,7 +50,7 @@ def hash_all(data: bytes) -> Dict[str, str]:
     return {algo: h.hexdigest() for algo, h in hashers.items()}
 
 
-def hash_file_all(path: Union[str, Path]) -> Dict[str, str]:
+def hash_file_all(path: str | Path) -> dict[str, str]:
     """Stream-hash a file on disk, computing all supported algorithms at once."""
     hashers = {algo: hashlib.new(algo) for algo in SUPPORTED_ALGOS}
     with open(path, "rb") as f:

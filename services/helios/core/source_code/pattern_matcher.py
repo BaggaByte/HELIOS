@@ -1,10 +1,10 @@
 import re
-from typing import Dict, Any, List
+from typing import Any
 
 
 def run_pattern_matcher(
-    code: str, language: str, filename: str, rules: Dict[str, str]
-) -> Dict[str, Any]:
+    code: str, language: str, filename: str, rules: dict[str, str]
+) -> dict[str, Any]:
     findings = []
     lines = code.split("\n")
     for i, line in enumerate(lines):

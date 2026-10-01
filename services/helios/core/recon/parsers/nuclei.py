@@ -1,11 +1,11 @@
 import json
 import logging
-from typing import Dict, Any, List
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
 
-def parse_nuclei(content: str) -> Dict[str, Any]:
+def parse_nuclei(content: str) -> dict[str, Any]:
     """
     Parses Nuclei JSONL output.
     Returns structured findings suitable for DB insertion.

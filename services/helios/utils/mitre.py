@@ -14,7 +14,7 @@ built to be trivially extended: add rows to `TECHNIQUES` / `CWE_TO_TECHNIQUE`.
 
 from __future__ import annotations
 
-from typing import Dict, List, Optional, TypedDict
+from typing import TypedDict
 
 
 class Technique(TypedDict):
@@ -23,7 +23,7 @@ class Technique(TypedDict):
     tactic: str
 
 
-TECHNIQUES: Dict[str, Technique] = {
+TECHNIQUES: dict[str, Technique] = {
     "T1595": {"id": "T1595", "name": "Active Scanning", "tactic": "Reconnaissance"},
     "T1590": {
         "id": "T1590",
@@ -104,7 +104,7 @@ TECHNIQUES: Dict[str, Technique] = {
 # Best-effort CWE -> likely ATT&CK technique mapping, for auto-tagging
 # findings that already carry a CWE ID (e.g. from the secret-detector or a
 # ZAP import) with a plausible ATT&CK technique.
-CWE_TO_TECHNIQUE: Dict[str, str] = {
+CWE_TO_TECHNIQUE: dict[str, str] = {
     "CWE-798": "T1552",  # Use of Hard-coded Credentials
     "CWE-522": "T1552",  # Insufficiently Protected Credentials
     "CWE-259": "T1552",  # Use of Hard-coded Password
@@ -118,12 +118,12 @@ CWE_TO_TECHNIQUE: Dict[str, str] = {
 }
 
 
-def get_technique(technique_id: str) -> Optional[Technique]:
+def get_technique(technique_id: str) -> Technique | None:
     """Look up a technique by its ATT&CK ID (e.g. 'T1190'). None if unknown."""
     return TECHNIQUES.get(technique_id.upper())
 
 
-def technique_for_cwe(cwe_id: Optional[str]) -> Optional[Technique]:
+def technique_for_cwe(cwe_id: str | None) -> Technique | None:
     """Best-effort: map a CWE ID (e.g. 'CWE-89') to a likely ATT&CK technique."""
     if not cwe_id:
         return None
@@ -131,9 +131,9 @@ def technique_for_cwe(cwe_id: Optional[str]) -> Optional[Technique]:
     return TECHNIQUES.get(technique_id) if technique_id else None
 
 
-def list_tactics() -> List[str]:
+def list_tactics() -> list[str]:
     """Return the distinct tactic names covered by the local technique table."""
-    seen: List[str] = []
+    seen: list[str] = []
     for t in TECHNIQUES.values():
         if t["tactic"] not in seen:
             seen.append(t["tactic"])

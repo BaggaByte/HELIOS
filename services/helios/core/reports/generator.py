@@ -10,20 +10,17 @@ Changes vs. original:
 
 from __future__ import annotations
 
-import asyncio
 import logging
-from typing import Optional
-
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
-from sqlalchemy.orm import selectinload
-
 import uuid
 
-from helios.models.project import Project
-from helios.models.finding import Finding
-from helios.core.reports.risk_calculator import calculate_project_risk
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
+
 from helios.core.reports.formatters.markdown import generate_markdown_report
+from helios.core.reports.risk_calculator import calculate_project_risk
+from helios.models.finding import Finding
+from helios.models.project import Project
 
 logger = logging.getLogger(__name__)
 

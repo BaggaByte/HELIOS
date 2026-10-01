@@ -1,10 +1,9 @@
-from fastapi import APIRouter, HTTPException, Depends, Path, status
-from pydantic import BaseModel, field_validator
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
-from typing import Optional, List
 from datetime import datetime
-import uuid
+
+from fastapi import APIRouter, Depends, HTTPException, Path, status
+from pydantic import BaseModel, field_validator
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from helios.infrastructure.database import get_db_session
 from helios.models.project import Project
@@ -20,9 +19,9 @@ router = APIRouter()
 
 class ProjectCreate(BaseModel):
     name: str
-    description: Optional[str] = None
+    description: str | None = None
     scope: str
-    out_of_scope: Optional[str] = None
+    out_of_scope: str | None = None
 
     @field_validator("name", "scope")
     @classmethod
@@ -34,7 +33,7 @@ class ProjectCreate(BaseModel):
 
     @field_validator("scope", "out_of_scope")
     @classmethod
-    def validate_scope_entries(cls, value: Optional[str]) -> Optional[str]:
+    def validate_scope_entries(cls, value: str | None) -> str | None:
         if value is None or not value.strip():
             return None if value is None else ""
         entries = [
@@ -57,18 +56,18 @@ class ProjectCreate(BaseModel):
 
 
 class ProjectUpdate(BaseModel):
-    name: Optional[str] = None
-    description: Optional[str] = None
-    status: Optional[str] = None
+    name: str | None = None
+    description: str | None = None
+    status: str | None = None
 
 
 class ProjectUpdateScope(BaseModel):
     scope: str
-    out_of_scope: Optional[str] = None
+    out_of_scope: str | None = None
 
     @field_validator("scope", "out_of_scope")
     @classmethod
-    def validate_scope_entries(cls, value: Optional[str]) -> Optional[str]:
+    def validate_scope_entries(cls, value: str | None) -> str | None:
         if value is None or not value.strip():
             return None if value is None else ""
         entries = [
@@ -93,9 +92,9 @@ class ProjectUpdateScope(BaseModel):
 class ProjectResponse(BaseModel):
     id: str
     name: str
-    description: Optional[str]
+    description: str | None
     scope: str
-    out_of_scope: Optional[str]
+    out_of_scope: str | None
     status: str
     created_at: str
 
@@ -122,7 +121,7 @@ from helios.api.v1.auth import get_current_user
 from helios.models.user import User
 
 
-@router.get("", response_model=List[ProjectResponse], summary="List all projects")
+@router.get("", response_model=list[ProjectResponse], summary="List all projects")
 async def list_projects(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db_session),
@@ -217,13 +216,14 @@ async def delete_project(
     await db.refresh(project)
 
     # Clean up physical files and vector store entries before deleting DB rows
-    import os
     import logging
+    import os
+
+    from helios.infrastructure.storage import StorageManager
+    from helios.infrastructure.vector_store import VectorStore
     from helios.models.evidence import Evidence
     from helios.models.finding import Finding
     from helios.models.project_file import ProjectFile
-    from helios.infrastructure.storage import StorageManager
-    from helios.infrastructure.vector_store import VectorStore
 
     cleanup_logger = logging.getLogger(__name__)
     storage = StorageManager()
@@ -295,7 +295,6 @@ async def delete_project(
     # Delete project row (which cascades to Findings, Evidence, ProjectFiles if configured)
     await db.delete(project)
     await db.commit()
-    return None
 
 
 @router.post(

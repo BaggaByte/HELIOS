@@ -1,30 +1,30 @@
+import asyncio
+import logging
+import re
+from datetime import datetime
+from typing import Any
+
 from fastapi import (
     APIRouter,
-    UploadFile,
+    Depends,
     File,
     HTTPException,
-    Depends,
-    Query,
-    status,
     Path,
+    Query,
+    UploadFile,
+    status,
 )
+from pydantic import BaseModel, ConfigDict
+from sqlalchemy import and_, delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, delete, and_, func
 from sqlalchemy.orm import selectinload
-from pydantic import BaseModel, Field, ConfigDict
-from typing import List, Optional, Dict, Any
-from datetime import datetime
-import logging
-import uuid
-import re
-import asyncio
 
-from helios.infrastructure.database import get_db_session
-from helios.models.project import Project
-from helios.models.host import Host
-from helios.models.service import Service
-from helios.core.recon.parsers.nmap import parse_nmap_xml
 from helios.core.knowledge_graph.builder import sync_host_with_services
+from helios.core.recon.parsers.nmap import parse_nmap_xml
+from helios.infrastructure.database import get_db_session
+from helios.models.host import Host
+from helios.models.project import Project
+from helios.models.service import Service
 from helios.utils.validators import is_target_in_scope
 
 logger = logging.getLogger(__name__)
@@ -41,14 +41,14 @@ class ServiceOut(BaseModel):
     port: int
     protocol: str
     state: str
-    name: Optional[str] = None
-    product: Optional[str] = None
-    version: Optional[str] = None
-    extrainfo: Optional[str] = None
-    banner: Optional[str] = None
-    tunnel: Optional[str] = None
-    cpe: List[str] = []
-    scripts: Dict[str, str] = {}
+    name: str | None = None
+    product: str | None = None
+    version: str | None = None
+    extrainfo: str | None = None
+    banner: str | None = None
+    tunnel: str | None = None
+    cpe: list[str] = []
+    scripts: dict[str, str] = {}
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -56,23 +56,23 @@ class ServiceOut(BaseModel):
 class HostOut(BaseModel):
     id: str
     ip: str
-    ipv6: Optional[str] = None
-    mac: Optional[str] = None
-    vendor: Optional[str] = None
-    hostname: Optional[str] = None
-    hostnames: List[str] = []
-    os: Optional[str] = None
-    os_accuracy: Optional[int] = None
-    os_family: Optional[str] = None
-    os_gen: Optional[str] = None
-    os_cpe: List[str] = []
-    distance: Optional[int] = None
-    uptime: Optional[int] = None
-    lastboot: Optional[str] = None
-    services: List[ServiceOut] = []
-    host_scripts: Dict[str, str] = {}
-    created_at: Optional[datetime] = None
-    updated_at: Optional[datetime] = None
+    ipv6: str | None = None
+    mac: str | None = None
+    vendor: str | None = None
+    hostname: str | None = None
+    hostnames: list[str] = []
+    os: str | None = None
+    os_accuracy: int | None = None
+    os_family: str | None = None
+    os_gen: str | None = None
+    os_cpe: list[str] = []
+    distance: int | None = None
+    uptime: int | None = None
+    lastboot: str | None = None
+    services: list[ServiceOut] = []
+    host_scripts: dict[str, str] = {}
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -93,11 +93,11 @@ class HostListResponse(BaseModel):
     total: int
     page: int
     page_size: int
-    hosts: List[HostOut]
+    hosts: list[HostOut]
 
 
 class PluginExecuteRequest(BaseModel):
-    payload: Dict[str, Any]
+    payload: dict[str, Any]
 
 
 # ──────────────────────────────────────────────────────────────
@@ -113,7 +113,7 @@ async def get_project_or_404(project_id: str, db: AsyncSession) -> Project:
     return project
 
 
-def _safe_str(value: Any) -> Optional[str]:
+def _safe_str(value: Any) -> str | None:
     if value is None:
         return None
     return str(value)[:512]
@@ -411,7 +411,7 @@ async def ingest_nmap(
             message=msg,
         )
 
-    except Exception as e:
+    except Exception:
         await db.rollback()
         logger.exception("Failed to ingest Nmap data")
         raise HTTPException(status_code=500, detail="Database error during ingest")
@@ -424,11 +424,11 @@ async def ingest_nmap(
 )
 async def get_hosts(
     project_id: str = Path(...),
-    ip: Optional[str] = Query(None),
-    hostname: Optional[str] = Query(None),
-    os: Optional[str] = Query(None),
-    port: Optional[int] = Query(None),
-    service: Optional[str] = Query(None),
+    ip: str | None = Query(None),
+    hostname: str | None = Query(None),
+    os: str | None = Query(None),
+    port: int | None = Query(None),
+    service: str | None = Query(None),
     page: int = Query(1, ge=1),
     page_size: int = Query(50, ge=1, le=500),
     db: AsyncSession = Depends(get_db_session),
@@ -507,7 +507,6 @@ async def delete_host(
         raise HTTPException(status_code=404, detail="Host not found")
     await db.delete(host)
     await db.commit()
-    return None
 
 
 # ── Plugin routing constants ──────────────────────────────────────────────────
@@ -525,8 +524,9 @@ _ALL_SUPPORTED_PLUGINS = _HOST_DISCOVERY_PLUGINS | _RECON_PLUGINS
 @router.get("/plugins", summary="List all available recon plugins")
 async def list_recon_plugins():
     """Returns all registered plugins and whether their binary is reachable."""
-    from helios.infrastructure.plugin_registry import plugin_registry
     import shutil
+
+    from helios.infrastructure.plugin_registry import plugin_registry
 
     plugin_registry.load_all()
     plugins_out = []

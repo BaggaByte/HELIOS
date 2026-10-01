@@ -13,7 +13,7 @@ from __future__ import annotations
 import json
 import logging
 import os
-from typing import Any, Dict, List
+from typing import Any
 
 from helios.plugins.base import BasePlugin, PluginError
 
@@ -40,7 +40,7 @@ class NiktoPlugin(BasePlugin):
 
     # ------------------------------------------------------------------
 
-    def execute(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+    def execute(self, payload: dict[str, Any]) -> dict[str, Any]:
         target: str = payload.get("target", "").strip()
         if not target:
             raise ValueError("'target' URL or host is required for Nikto.")
@@ -92,14 +92,14 @@ class NiktoPlugin(BasePlugin):
 
     # ------------------------------------------------------------------
 
-    def _parse_output_file(self, path: str) -> List[Dict[str, Any]]:
+    def _parse_output_file(self, path: str) -> list[dict[str, Any]]:
         try:
             with open(path, "r", encoding="utf-8", errors="replace") as fh:
                 data = json.load(fh)
         except (OSError, json.JSONDecodeError):
             return []
 
-        results: List[Dict[str, Any]] = []
+        results: list[dict[str, Any]] = []
         # Nikto JSON can be wrapped in a host list
         hosts = data if isinstance(data, list) else [data]
         for host in hosts:

@@ -1,10 +1,9 @@
-import xml.etree.ElementTree as ET
+import html
 import logging
 import re
-import html
-from typing import List, Dict, Any, Optional, Union
-from dataclasses import dataclass, field, asdict
-from datetime import datetime
+import xml.etree.ElementTree as ET
+from dataclasses import asdict, dataclass, field
+from typing import Any
 from urllib.parse import urlparse
 
 logger = logging.getLogger(__name__)
@@ -19,10 +18,10 @@ logger = logging.getLogger(__name__)
 class Instance:
     uri: str
     method: str = "GET"
-    param: Optional[str] = None
-    attack: Optional[str] = None
-    evidence: Optional[str] = None
-    otherinfo: Optional[str] = None
+    param: str | None = None
+    attack: str | None = None
+    evidence: str | None = None
+    otherinfo: str | None = None
 
     @property
     def summary(self) -> str:
@@ -37,8 +36,8 @@ class Instance:
 @dataclass
 class Finding:
     title: str
-    plugin_id: Optional[str] = None
-    alert_ref: Optional[str] = None
+    plugin_id: str | None = None
+    alert_ref: str | None = None
     severity: str = "info"  # info | low | medium | high | critical
     risk_code: int = 0
     confidence: str = "low"  # low | medium | high | confirmed
@@ -46,25 +45,25 @@ class Finding:
     description: str = ""
     solution: str = ""
     otherinfo: str = ""
-    reference: List[str] = field(default_factory=list)
-    cwe_id: Optional[str] = None
-    wasc_id: Optional[str] = None
-    source_id: Optional[str] = None
+    reference: list[str] = field(default_factory=list)
+    cwe_id: str | None = None
+    wasc_id: str | None = None
+    source_id: str | None = None
 
     # Target context
-    site_name: Optional[str] = None
-    host: Optional[str] = None
-    port: Optional[int] = None
-    ssl: Optional[bool] = None
+    site_name: str | None = None
+    host: str | None = None
+    port: int | None = None
+    ssl: bool | None = None
 
     # Instances (evidence)
-    instances: List[Instance] = field(default_factory=list)
+    instances: list[Instance] = field(default_factory=list)
     instance_count: int = 0
 
     # Derived helpers
-    tags: List[str] = field(default_factory=list)
+    tags: list[str] = field(default_factory=list)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         d = asdict(self)
         # Convenience fields for downstream consumers
         d["impact"] = self.instances[0].summary if self.instances else ""
@@ -100,7 +99,7 @@ _WHITESPACE_RE = re.compile(r"[ \t]+")
 _MULTI_NL_RE = re.compile(r"\n{3,}")
 
 
-def _clean_text(text: Optional[str]) -> str:
+def _clean_text(text: str | None) -> str:
     """Strip HTML tags, unescape entities, normalise whitespace."""
     if not text:
         return ""
@@ -112,7 +111,7 @@ def _clean_text(text: Optional[str]) -> str:
     return text.strip()
 
 
-def _parse_references(raw: Optional[str]) -> List[str]:
+def _parse_references(raw: str | None) -> list[str]:
     if not raw:
         return []
     # ZAP frequently embeds <p>…</p> or just newlines / <br>
@@ -131,7 +130,7 @@ def _parse_references(raw: Optional[str]) -> List[str]:
     return refs
 
 
-def _safe_int(value: Optional[str]) -> Optional[int]:
+def _safe_int(value: str | None) -> int | None:
     if value is None or value == "":
         return None
     try:
@@ -140,7 +139,7 @@ def _safe_int(value: Optional[str]) -> Optional[int]:
         return None
 
 
-def _extract_tags(alert_elem: ET.Element) -> List[str]:
+def _extract_tags(alert_elem: ET.Element) -> list[str]:
     """Pull <tag> elements if present (newer ZAP reports)."""
     tags = []
     for tag in alert_elem.findall(".//tag"):
@@ -157,13 +156,13 @@ def _extract_tags(alert_elem: ET.Element) -> List[str]:
 
 
 def parse_zap_xml(
-    xml_content: Union[bytes, str],
+    xml_content: bytes | str,
     *,
     min_risk: int = 0,
     min_confidence: int = 1,
     include_false_positives: bool = False,
     max_instances_per_alert: int = 50,
-) -> List[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     """
     Advanced OWASP ZAP XML report parser.
 
@@ -201,7 +200,7 @@ def parse_zap_xml(
         "program_name": root.findtext(".//programName") or "OWASP ZAP",
     }
 
-    findings: List[Finding] = []
+    findings: list[Finding] = []
 
     # Support both classic <OWASPZAPReport><site>… and some flat exports
     sites = root.findall(".//site")
@@ -267,7 +266,7 @@ def parse_zap_xml(
             tags = _extract_tags(alert)
 
             # ── Instances ────────────────────────────────────
-            instances: List[Instance] = []
+            instances: list[Instance] = []
             instances_elem = alert.find("instances")
             if instances_elem is not None:
                 for inst in instances_elem.findall("instance")[
@@ -353,14 +352,14 @@ def parse_zap_xml(
 
 
 def filter_findings(
-    findings: List[Dict[str, Any]],
+    findings: list[dict[str, Any]],
     *,
-    severity: Optional[str] = None,
-    min_risk: Optional[int] = None,
-    host: Optional[str] = None,
-    cwe_id: Optional[str] = None,
-    plugin_id: Optional[str] = None,
-) -> List[Dict[str, Any]]:
+    severity: str | None = None,
+    min_risk: int | None = None,
+    host: str | None = None,
+    cwe_id: str | None = None,
+    plugin_id: str | None = None,
+) -> list[dict[str, Any]]:
     """Simple post-filter helper."""
     out = findings
     if severity:
@@ -376,16 +375,16 @@ def filter_findings(
     return out
 
 
-def group_by_host(findings: List[Dict[str, Any]]) -> Dict[str, List[Dict[str, Any]]]:
+def group_by_host(findings: list[dict[str, Any]]) -> dict[str, list[dict[str, Any]]]:
     """Group findings by target host."""
-    groups: Dict[str, List[Dict[str, Any]]] = {}
+    groups: dict[str, list[dict[str, Any]]] = {}
     for f in findings:
         key = f.get("host") or f.get("target_host") or "unknown"
         groups.setdefault(key, []).append(f)
     return groups
 
 
-def severity_counts(findings: List[Dict[str, Any]]) -> Dict[str, int]:
+def severity_counts(findings: list[dict[str, Any]]) -> dict[str, int]:
     """Return {severity: count}."""
     counts = {"critical": 0, "high": 0, "medium": 0, "low": 0, "info": 0}
     for f in findings:
@@ -394,7 +393,7 @@ def severity_counts(findings: List[Dict[str, Any]]) -> Dict[str, int]:
     return counts
 
 
-def pretty_print_findings(findings: List[Dict[str, Any]], limit: int = 20) -> None:
+def pretty_print_findings(findings: list[dict[str, Any]], limit: int = 20) -> None:
     """Human-readable summary for debugging."""
     counts = severity_counts(findings)
     print(f"Total findings: {len(findings)}  |  {counts}")

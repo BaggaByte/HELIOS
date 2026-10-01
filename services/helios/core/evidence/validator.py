@@ -1,10 +1,10 @@
-import os
-from typing import Dict
-from helios.infrastructure.encryption import EncryptionManager
 import hashlib
+import os
+
+from helios.infrastructure.encryption import EncryptionManager
 
 
-def verify_evidence(file_path: str, expected_hash: str) -> Dict[str, any]:
+def verify_evidence(file_path: str, expected_hash: str) -> dict[str, any]:
     """
     Verifies that the file on disk matches the expected hash.
     Used for Chain of Custody integrity checks.

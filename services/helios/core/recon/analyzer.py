@@ -1,5 +1,5 @@
 import logging
-from typing import List, Dict, Any
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -25,7 +25,7 @@ class AttackSurfaceAnalyzer:
             6379,
         }
 
-    def analyze_host(self, host_data: Dict[str, Any]) -> Dict[str, Any]:
+    def analyze_host(self, host_data: dict[str, Any]) -> dict[str, Any]:
         """
         Analyzes a single host dictionary and tags interesting features.
         """

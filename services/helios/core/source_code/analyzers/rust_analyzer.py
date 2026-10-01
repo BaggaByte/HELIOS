@@ -1,4 +1,5 @@
-from typing import Dict, Any
+from typing import Any
+
 from helios.core.source_code.pattern_matcher import run_pattern_matcher
 
 RUST_RULES = {
@@ -8,5 +9,5 @@ RUST_RULES = {
 }
 
 
-def analyze_rust_source(code: str, filename: str = "unknown.rs") -> Dict[str, Any]:
+def analyze_rust_source(code: str, filename: str = "unknown.rs") -> dict[str, Any]:
     return run_pattern_matcher(code, "rust", filename, RUST_RULES)

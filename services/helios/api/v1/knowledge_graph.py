@@ -1,15 +1,16 @@
-from fastapi import APIRouter, Depends, HTTPException, Path, status
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, and_
-from pydantic import BaseModel
-from typing import Optional, Dict, Any, List
-import uuid
 import logging
+import uuid
+from typing import Any
+
+from fastapi import APIRouter, Depends, HTTPException, Path, status
+from pydantic import BaseModel
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from helios.infrastructure.database import get_db_session
-from helios.models.project import Project
-from helios.models.knowledge_node import KnowledgeNode
 from helios.models.knowledge_edge import KnowledgeEdge
+from helios.models.knowledge_node import KnowledgeNode
+from helios.models.project import Project
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -23,14 +24,14 @@ router = APIRouter()
 class NodeCreate(BaseModel):
     type: str
     label: str
-    properties: Dict[str, Any] = {}
+    properties: dict[str, Any] = {}
 
 
 class EdgeCreate(BaseModel):
     source_id: str
     target_id: str
     relation: str
-    properties: Dict[str, Any] = {}
+    properties: dict[str, Any] = {}
     confidence: float = 1.0
 
 
@@ -239,4 +240,3 @@ async def delete_node(
         raise HTTPException(status_code=404, detail="Node not found")
     await db.delete(node)
     await db.commit()
-    return None

@@ -1,9 +1,9 @@
 import json
 from datetime import datetime
-from typing import Dict, Any, Optional
+from typing import Any
 
 
-def parse_kubernetes_log(line: str) -> Optional[Dict[str, Any]]:
+def parse_kubernetes_log(line: str) -> dict[str, Any] | None:
     try:
         data = json.loads(line)
         if "requestURI" not in data and "verb" not in data:

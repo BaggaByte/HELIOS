@@ -1,4 +1,5 @@
-from typing import Dict, Any
+from typing import Any
+
 from helios.core.source_code.pattern_matcher import run_pattern_matcher
 
 CSHARP_RULES = {
@@ -9,5 +10,5 @@ CSHARP_RULES = {
 }
 
 
-def analyze_csharp_source(code: str, filename: str = "unknown.cs") -> Dict[str, Any]:
+def analyze_csharp_source(code: str, filename: str = "unknown.cs") -> dict[str, Any]:
     return run_pattern_matcher(code, "csharp", filename, CSHARP_RULES)

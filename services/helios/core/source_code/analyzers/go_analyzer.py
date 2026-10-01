@@ -1,4 +1,5 @@
-from typing import Dict, Any
+from typing import Any
+
 from helios.core.source_code.pattern_matcher import run_pattern_matcher
 
 GO_RULES = {
@@ -9,5 +10,5 @@ GO_RULES = {
 }
 
 
-def analyze_go_source(code: str, filename: str = "unknown.go") -> Dict[str, Any]:
+def analyze_go_source(code: str, filename: str = "unknown.go") -> dict[str, Any]:
     return run_pattern_matcher(code, "go", filename, GO_RULES)

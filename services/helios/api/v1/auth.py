@@ -1,13 +1,13 @@
-from datetime import datetime, timedelta, timezone
-from typing import Annotated
-import time
 import asyncio
+import time
 from collections import defaultdict
+from datetime import UTC, datetime, timedelta
+from typing import Annotated
 
 import jwt
 from argon2 import PasswordHasher
 from argon2.exceptions import VerifyMismatchError
-from fastapi import APIRouter, Depends, HTTPException, status, Path
+from fastapi import APIRouter, Depends, HTTPException, Path, status
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from pydantic import BaseModel
 from sqlalchemy import select
@@ -15,8 +15,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from helios.config import get_settings
 from helios.infrastructure.database import get_db_session
-from helios.models.user import User
 from helios.models.project import Project
+from helios.models.user import User
 
 router = APIRouter()
 _setup_lock = asyncio.Lock()
@@ -44,9 +44,9 @@ def create_access_token(data: dict, expires_delta: timedelta | None = None):
     settings = get_settings()
     to_encode = data.copy()
     if expires_delta:
-        expire = datetime.now(timezone.utc) + expires_delta
+        expire = datetime.now(UTC) + expires_delta
     else:
-        expire = datetime.now(timezone.utc) + timedelta(minutes=1440)  # 24h
+        expire = datetime.now(UTC) + timedelta(minutes=1440)  # 24h
     to_encode.update({"exp": expire})
     encoded_jwt = jwt.encode(to_encode, settings.SECRET_KEY, algorithm="HS256")
     return encoded_jwt

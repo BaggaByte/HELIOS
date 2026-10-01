@@ -1,9 +1,9 @@
 import json
 from datetime import datetime
-from typing import Dict, Any, Optional
+from typing import Any
 
 
-def parse_zeek_json_log(line: str) -> Optional[Dict[str, Any]]:
+def parse_zeek_json_log(line: str) -> dict[str, Any] | None:
     try:
         data = json.loads(line)
         ts = data.get("ts")

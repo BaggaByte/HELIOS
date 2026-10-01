@@ -19,7 +19,8 @@ To run a real Celery worker:
 from __future__ import annotations
 
 import logging
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -49,7 +50,7 @@ class _SyncTaskResult:
         self.result = return_value
         self.status = "SUCCESS"
 
-    def get(self, timeout: float | None = None) -> Any:  # noqa: ARG002
+    def get(self, timeout: float | None = None) -> Any:
         return self.result
 
 
@@ -150,8 +151,9 @@ def _build_celery_app():
     # A quick connection attempt at startup is better than silently blocking
     # every task call later.
     try:
-        import redis as _redis  # type: ignore
         from urllib.parse import urlparse
+
+        import redis as _redis  # type: ignore
 
         parsed = urlparse(broker_url)
         host = parsed.hostname or "localhost"

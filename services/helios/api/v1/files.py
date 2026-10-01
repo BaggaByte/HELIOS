@@ -1,13 +1,12 @@
-from fastapi import APIRouter, UploadFile, File, HTTPException, Path, Depends
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
 import logging
-import uuid
-import time
 
+from fastapi import APIRouter, Depends, File, HTTPException, Path, UploadFile
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from helios.infrastructure.database import get_db_session
 from helios.infrastructure.storage import StorageManager
 from helios.infrastructure.vector_store import VectorStore
-from helios.infrastructure.database import get_db_session
 from helios.models.project_file import ProjectFile
 
 logger = logging.getLogger(__name__)

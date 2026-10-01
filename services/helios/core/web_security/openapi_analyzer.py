@@ -1,9 +1,10 @@
-from typing import Dict, Any, List
 import json
+from typing import Any
+
 import yaml
 
 
-def analyze_openapi_spec(spec_content: str) -> List[Dict[str, Any]]:
+def analyze_openapi_spec(spec_content: str) -> list[dict[str, Any]]:
     findings = []
     try:
         if spec_content.strip().startswith("{"):

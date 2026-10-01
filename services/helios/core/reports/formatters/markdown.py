@@ -1,15 +1,15 @@
-from typing import Any, List, Dict
 from datetime import datetime
+from typing import Any
 
 
 def generate_markdown_report(
-    project: Any, findings: List[Any], risk_data: Dict[str, Any], ai_summary: str = ""
+    project: Any, findings: list[Any], risk_data: dict[str, Any], ai_summary: str = ""
 ) -> str:
     """Generates a comprehensive Markdown report from project data."""
     date_str = datetime.utcnow().strftime("%Y-%m-%d")
 
     # 1. Title Page & Header
-    md = f"# Penetration Testing Report\n\n"
+    md = "# Penetration Testing Report\n\n"
     md += f"**Project Name:** {project.name}\n"
     md += f"**Date:** {date_str}\n"
     md += f"**Overall Risk Rating:** {risk_data['level']}\n\n"
@@ -65,7 +65,7 @@ def generate_markdown_report(
             # Note: Evidence linking would go here, but since evidence is stored locally
             # we'll just note if evidence exists.
             if hasattr(f, "evidence") and f.evidence:
-                md += f"#### Evidence\n"
+                md += "#### Evidence\n"
                 md += f"*Attached {len(f.evidence)} evidence items.*\n\n"
 
             md += "---\n\n"

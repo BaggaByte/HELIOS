@@ -1,11 +1,11 @@
 import json
 import logging
-from typing import Dict, Any
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
 
-def parse_whatweb(content: str) -> Dict[str, Any]:
+def parse_whatweb(content: str) -> dict[str, Any]:
     """
     Parses WhatWeb JSON output.
     Returns structured host and web service data.

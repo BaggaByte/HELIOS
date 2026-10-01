@@ -1,8 +1,8 @@
 import json
-from typing import Dict, Any, List
+from typing import Any
 
 
-def parse_gobuster(content: str) -> Dict[str, Any]:
+def parse_gobuster(content: str) -> dict[str, Any]:
     """
     Parses Gobuster standard output or JSON output.
     Returns standard HELIOS recon format.

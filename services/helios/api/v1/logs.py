@@ -1,29 +1,28 @@
+import logging
+
 from fastapi import (
     APIRouter,
-    UploadFile,
-    File,
-    HTTPException,
     Depends,
+    File,
     Form,
+    HTTPException,
     Path,
     Query,
+    UploadFile,
 )
+from sqlalchemy import desc, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, desc, func
-import logging
-from typing import Optional
 
-from helios.infrastructure.database import get_db_session
-from helios.models.project import Project
-from helios.models.log_event import LogEvent
 from helios.core.logs.timeline_builder import parse_log_file
+from helios.infrastructure.database import get_db_session
+from helios.models.log_event import LogEvent
+from helios.models.project import Project
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
 async def get_project_or_404(project_id, db: AsyncSession) -> Project:
-    import uuid
 
     pid = project_id
     result = await db.execute(select(Project).where(Project.id == pid))
@@ -89,8 +88,8 @@ async def get_timeline(
     project_id: str = Path(...),
     page: int = Query(1, ge=1),
     limit: int = Query(50, ge=1, le=500),
-    severity: Optional[str] = Query(None),
-    source: Optional[str] = Query(None),
+    severity: str | None = Query(None),
+    source: str | None = Query(None),
     db: AsyncSession = Depends(get_db_session),
 ):
     project = await get_project_or_404(project_id, db)

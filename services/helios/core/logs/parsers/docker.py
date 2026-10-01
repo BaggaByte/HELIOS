@@ -1,9 +1,9 @@
 import json
 from datetime import datetime
-from typing import Dict, Any, Optional
+from typing import Any
 
 
-def parse_docker_log(line: str) -> Optional[Dict[str, Any]]:
+def parse_docker_log(line: str) -> dict[str, Any] | None:
     try:
         data = json.loads(line)
         timestamp = data.get("time") or data.get("timestamp")

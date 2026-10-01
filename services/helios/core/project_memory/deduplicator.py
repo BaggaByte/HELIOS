@@ -1,5 +1,5 @@
 import re
-from typing import List
+
 from helios.core.project_memory.store import get_project_context
 
 
@@ -26,7 +26,7 @@ def is_duplicate_finding(
     in the project memory. Returns True if a duplicate is found.
     """
     ctx = get_project_context(project_id)
-    existing_findings: List[str] = ctx.get("key_findings", [])
+    existing_findings: list[str] = ctx.get("key_findings", [])
 
     for finding in existing_findings:
         similarity = _jaccard_similarity(new_finding, finding)

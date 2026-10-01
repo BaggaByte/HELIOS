@@ -1,4 +1,5 @@
-from typing import Dict, Any
+from typing import Any
+
 from helios.core.source_code.pattern_matcher import run_pattern_matcher
 
 C_RULES = {
@@ -9,9 +10,9 @@ C_RULES = {
 }
 
 
-def analyze_c_source(code: str, filename: str = "unknown.c") -> Dict[str, Any]:
+def analyze_c_source(code: str, filename: str = "unknown.c") -> dict[str, Any]:
     return run_pattern_matcher(code, "c", filename, C_RULES)
 
 
-def analyze_cpp_source(code: str, filename: str = "unknown.cpp") -> Dict[str, Any]:
+def analyze_cpp_source(code: str, filename: str = "unknown.cpp") -> dict[str, Any]:
     return run_pattern_matcher(code, "cpp", filename, C_RULES)

@@ -40,7 +40,7 @@ def _roundup(value: float) -> float:
 
 def _parse_vector(vector: str) -> dict:
     vector = vector.strip()
-    if vector.startswith("CVSS:3.1/") or vector.startswith("CVSS:3.0/"):
+    if vector.startswith(("CVSS:3.1/", "CVSS:3.0/")):
         vector = vector.split("/", 1)[1]
 
     metrics = {}

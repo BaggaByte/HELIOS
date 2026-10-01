@@ -1,7 +1,7 @@
+import logging
 import re
 from datetime import datetime
-from typing import Dict, Any, Optional
-import logging
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -18,7 +18,7 @@ FAILED_LOGIN_REGEX = re.compile(
 )
 
 
-def parse_auth_log_line(line: str) -> Optional[Dict[str, Any]]:
+def parse_auth_log_line(line: str) -> dict[str, Any] | None:
     match = AUTH_REGEX.match(line)
     if not match:
         return None

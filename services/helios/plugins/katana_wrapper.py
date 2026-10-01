@@ -10,7 +10,7 @@ Reference: https://docs.projectdiscovery.io/tools/katana/running
 from __future__ import annotations
 
 import logging
-from typing import Any, Dict, List
+from typing import Any
 
 from helios.plugins.base import BasePlugin, PluginError
 
@@ -37,7 +37,7 @@ class KatanaPlugin(BasePlugin):
 
     # ------------------------------------------------------------------
 
-    def execute(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+    def execute(self, payload: dict[str, Any]) -> dict[str, Any]:
         target: str = payload.get("target", "").strip()
         if not target:
             raise ValueError("'target' URL is required for Katana.")
@@ -86,8 +86,8 @@ class KatanaPlugin(BasePlugin):
 
     # ------------------------------------------------------------------
 
-    def _parse_output(self, stdout: str) -> List[Dict[str, Any]]:
-        endpoints: List[Dict[str, Any]] = []
+    def _parse_output(self, stdout: str) -> list[dict[str, Any]]:
+        endpoints: list[dict[str, Any]] = []
         seen: set = set()
         for record in self.parse_jsonlines(stdout):
             req = record.get("request", {})

@@ -1,6 +1,6 @@
 import logging
-from typing import Dict, Any, Callable
-import json
+from collections.abc import Callable
+from typing import Any
 
 from helios.core.recon.analyzer import analyzer
 from helios.core.recon.prioritizer import prioritizer
@@ -15,13 +15,13 @@ class ReconIngestor:
     """
 
     def __init__(self):
-        self._parsers: Dict[str, Callable] = {}
+        self._parsers: dict[str, Callable] = {}
 
     def register_parser(self, tool_name: str, parser_func: Callable):
         """Register a specific parser function for a tool."""
         self._parsers[tool_name.lower()] = parser_func
 
-    def ingest(self, tool_name: str, raw_content: str) -> Dict[str, Any]:
+    def ingest(self, tool_name: str, raw_content: str) -> dict[str, Any]:
         """
         Routes the raw content to the registered parser.
         """

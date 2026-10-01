@@ -1,12 +1,12 @@
-import asyncio
 import logging
 import time
-from typing import AsyncGenerator, List, Dict, Any, Optional
+from collections.abc import AsyncGenerator
 from dataclasses import dataclass
+from typing import Any
 
-from helios.infrastructure.openvino_runtime import OpenVINORuntime, GenerationConfig
-from helios.infrastructure.vector_store import VectorStore
 from helios.core.project_memory.retriever import build_memory_context_prompt
+from helios.infrastructure.openvino_runtime import GenerationConfig, OpenVINORuntime
+from helios.infrastructure.vector_store import VectorStore
 
 logger = logging.getLogger(__name__)
 
@@ -49,7 +49,7 @@ class ChatEngine:
         system_prompt: str,
         user_prompt: str,
         context: str = "",
-        history: Optional[List[ChatMessage]] = None,
+        history: list[ChatMessage] | None = None,
     ) -> str:
         """
         Build a prompt using Phi-3's native chat template.
@@ -89,11 +89,11 @@ class ChatEngine:
     async def generate_response(
         self,
         prompt: str,
-        history: Optional[List[ChatMessage]] = None,
+        history: list[ChatMessage] | None = None,
         recon_context: str = "",
         project_id: str = "",
-        gen_config: Optional[GenerationConfig] = None,
-    ) -> AsyncGenerator[str, None]:
+        gen_config: GenerationConfig | None = None,
+    ) -> AsyncGenerator[str]:
 
         start_time = time.time()
 
@@ -154,7 +154,7 @@ class ChatEngine:
 
         logger.info(f"Generation complete. Total tokens: {tokens_generated}")
 
-    def get_status(self) -> Dict[str, Any]:
+    def get_status(self) -> dict[str, Any]:
         return {
             "engine": "ready",
             "vector_store_active": self.vector_store is not None,

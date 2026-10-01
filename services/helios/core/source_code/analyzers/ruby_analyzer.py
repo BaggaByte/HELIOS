@@ -1,4 +1,5 @@
-from typing import Dict, Any
+from typing import Any
+
 from helios.core.source_code.pattern_matcher import run_pattern_matcher
 
 RUBY_RULES = {
@@ -10,5 +11,5 @@ RUBY_RULES = {
 }
 
 
-def analyze_ruby_source(code: str, filename: str = "unknown.rb") -> Dict[str, Any]:
+def analyze_ruby_source(code: str, filename: str = "unknown.rb") -> dict[str, Any]:
     return run_pattern_matcher(code, "ruby", filename, RUBY_RULES)
