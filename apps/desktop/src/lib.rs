@@ -67,7 +67,7 @@ pub fn run() {
             } else {
                 // Production mode: use sidecar via tauri-plugin-shell
                 use tauri_plugin_shell::ShellExt;
-                match app.handle().shell().sidecar("bin/helios_backend") {
+                match app.handle().shell().sidecar("helios_backend") {
                     Ok(mut sidecar_command) => {
                         sidecar_command = sidecar_command.arg("--port").arg(port.to_string());
                         

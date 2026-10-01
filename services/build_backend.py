@@ -80,7 +80,7 @@ def build(target: str | None = None) -> None:
     sep = _pyinstaller_sep()
 
     bin_name = f"helios_backend-{target}{ext}"
-    output_dir = base_dir.parent / "apps" / "desktop" / "bin"
+    output_dir = base_dir.parent / "apps" / "desktop"
     output_dir.mkdir(parents=True, exist_ok=True)
 
     print(f"Building sidecar for target: {target}")

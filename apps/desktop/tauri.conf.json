@@ -31,7 +31,7 @@
   },
   "bundle": {
     "externalBin": [
-      "bin/helios_backend"
+      "helios_backend"
     ],
     "active": true,
     "targets": "all",

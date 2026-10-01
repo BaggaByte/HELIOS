@@ -95,10 +95,10 @@ jobs:
 
           EXT=""
           if [[ "$TARGET" == *windows* ]]; then EXT=".exe"; fi
-          EXPECTED="apps/desktop/bin/helios_backend-${TARGET}${EXT}"
+          EXPECTED="apps/desktop/helios_backend-${TARGET}${EXT}"
 
           echo "Expecting sidecar at: $EXPECTED"
-          ls -la apps/desktop/bin/ || true
+          ls -la apps/desktop/ || true
 
           if [ ! -f "$EXPECTED" ]; then
             echo "ERROR: Expected sidecar '$EXPECTED' was not produced. Build aborted."
