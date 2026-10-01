@@ -203,16 +203,16 @@ async def initial_setup(req: SetupRequest, db: AsyncSession = Depends(get_db_ses
             )
 
         # 2. Claim legacy projects
-        result = await db.execute(
+        proj_result = await db.execute(
             select(Project).where(Project.created_by.in_(LEGACY_SYSTEM_USER_IDS))
         )
-        orphaned = result.scalars().all()
+        orphaned = proj_result.scalars().all()
         for p in orphaned:
             p.created_by = user.id
 
         # 3. Create default project if none exist
-        result = await db.execute(select(Project).limit(1))
-        if not result.scalars().first():
+        def_proj_result = await db.execute(select(Project).limit(1))
+        if not def_proj_result.scalars().first():
             default_proj = Project(
                 id="default-project-id",
                 name="Default Workspace",

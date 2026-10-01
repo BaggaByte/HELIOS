@@ -53,6 +53,7 @@ class OpenVINORuntime:
     """
 
     _instance: Optional["OpenVINORuntime"] = None
+    _initialized: bool = False
 
     def __new__(cls, *args: Any, **kwargs: Any) -> "OpenVINORuntime":
         if cls._instance is None:

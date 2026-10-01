@@ -106,7 +106,7 @@ async def get_full_graph(
 )
 async def create_node(
     project_id: str = Path(...),
-    body: NodeCreate = ...,
+    body: NodeCreate,
     db: AsyncSession = Depends(get_db_session),
 ):
     await get_project_or_404(project_id, db)
@@ -134,7 +134,7 @@ async def create_node(
 )
 async def create_edge(
     project_id: str = Path(...),
-    body: EdgeCreate = ...,
+    body: EdgeCreate,
     db: AsyncSession = Depends(get_db_session),
 ):
     await get_project_or_404(project_id, db)

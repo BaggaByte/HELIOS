@@ -94,7 +94,7 @@ async def _generate_ai_summary(project: Project, findings, risk_data: dict) -> s
 
 def _fallback_summary(project: Project, findings, risk_data: dict) -> str:
     """Statistics-based summary used when the LLM model is not loaded."""
-    severity_counts = {}
+    severity_counts: dict[str, int] = {}
     for f in findings:
         sev = (f.severity or "info").lower()
         severity_counts[sev] = severity_counts.get(sev, 0) + 1
@@ -131,12 +131,12 @@ async def generate_report(
         raise ValueError("Project not found.")
 
     # 2. Fetch Findings with Evidence
-    result = await db.execute(
+    findings_result = await db.execute(
         select(Finding)
         .filter_by(project_id=project_id)
         .options(selectinload(Finding.evidence))
     )
-    findings = result.scalars().all()
+    findings = list(findings_result.scalars().all())
 
     # Sort: Critical > High > Medium > Low > Info
     findings = sorted(

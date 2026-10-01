@@ -1,10 +1,11 @@
 import hashlib
 import os
+from typing import Any
 
 from helios.infrastructure.encryption import EncryptionManager
 
 
-def verify_evidence(file_path: str, expected_hash: str) -> dict[str, any]:
+def verify_evidence(file_path: str, expected_hash: str) -> dict[str, Any]:
     """
     Verifies that the file on disk matches the expected hash.
     Used for Chain of Custody integrity checks.

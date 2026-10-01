@@ -51,7 +51,7 @@ async def save_evidence_file(upload_file: UploadFile) -> dict:
                 detail="File exceeds the maximum limit of 50MB.",
             )
 
-    file_data = bytes(file_data)
+    file_data_bytes = bytes(file_data)
     file_hash = sha256.hexdigest()
 
     # Generate a unique filename to prevent collisions, but keep original extension
@@ -61,7 +61,7 @@ async def save_evidence_file(upload_file: UploadFile) -> dict:
 
     # Encrypt
     enc_manager = EncryptionManager()
-    encrypted_data = enc_manager.encrypt_data(file_data)
+    encrypted_data = enc_manager.encrypt_data(file_data_bytes)
 
     # Write encrypted to disk
     with open(file_path, "wb") as buffer:

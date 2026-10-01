@@ -7,8 +7,6 @@ from sqlalchemy import DateTime
 from sqlalchemy.sql import func
 
 class Base(DeclarativeBase):
-    id: Any
-    __name__: str
     
     # Generate __tablename__ automatically
     @declared_attr.directive

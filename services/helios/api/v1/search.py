@@ -58,7 +58,7 @@ async def global_search(
 
     # Search hosts
     if not type or type == "host":
-        stmt = (
+        host_stmt = (
             select(Host)
             .where(
                 Host.project_id == project_id,
@@ -70,7 +70,7 @@ async def global_search(
             )
             .limit(20)
         )
-        h_result = await db.execute(stmt)
+        h_result = await db.execute(host_stmt)
         for h in h_result.scalars().all():
             results.append(
                 {

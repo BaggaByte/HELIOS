@@ -102,7 +102,7 @@ class VectorStore:
             logger.error(f"VectorStore: decrypt failed ({exc}).")
             raise
 
-    def _decrypt_results(self, results: dict[str, Any]) -> dict[str, Any]:
+    def _decrypt_results(self, results: Any) -> dict[str, Any]:
         """Decrypt all document strings in a ChromaDB query result dict."""
         if not results or "documents" not in results:
             return results

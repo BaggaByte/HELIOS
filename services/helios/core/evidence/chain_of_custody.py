@@ -99,7 +99,7 @@ class ChainOfCustody:
         """
         Returns all ledger events for a specific evidence_id.
         """
-        events = []
+        events: list[dict[str, Any]] = []
         if not os.path.exists(self.ledger_path):
             return events
 

@@ -2,8 +2,8 @@ import asyncio
 from collections.abc import AsyncGenerator
 from typing import Any
 
-from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
+
 
 from helios.config import get_settings
 
@@ -17,7 +17,7 @@ if not settings.DATABASE_URL.startswith("sqlite"):
 
 engine = create_async_engine(settings.DATABASE_URL, **_engine_kwargs)
 
-async_session_maker = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+async_session_maker = async_sessionmaker(engine, expire_on_commit=False)
 
 
 async def get_db_session() -> AsyncGenerator[AsyncSession]:
@@ -52,7 +52,7 @@ async def init_db() -> None:
 
         if getattr(sys, "frozen", False):
             # When frozen with PyInstaller --onefile, files are extracted to sys._MEIPASS
-            base_dir = pathlib.Path(sys._MEIPASS)
+            base_dir = pathlib.Path(getattr(sys, "_MEIPASS", ""))
 
         alembic_ini_path = base_dir / "alembic.ini"
 

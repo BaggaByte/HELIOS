@@ -1,5 +1,8 @@
 import uuid
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
+
+if TYPE_CHECKING:
+    from helios.models.finding import Finding
 from datetime import datetime
 from sqlalchemy import String, Text, ForeignKey, JSON, DateTime
 from sqlalchemy.orm import Mapped, mapped_column, relationship

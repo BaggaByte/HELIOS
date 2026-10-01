@@ -18,7 +18,7 @@ class AnalyzeRequest(BaseModel):
 )
 async def analyze_js_endpoint(
     project_id: str = Path(...),
-    request: AnalyzeRequest = ...,
+    request: AnalyzeRequest,
 ):
     if not request.code.strip():
         raise HTTPException(status_code=400, detail="JS code cannot be empty")

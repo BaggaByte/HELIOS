@@ -30,7 +30,7 @@ async def create_report(
     await get_project_or_404(project_id, db)
 
     try:
-        markdown_content = await generate_report(db, project_id, include_ai_summary)
+        markdown_content = await generate_report(db, uuid.UUID(project_id), include_ai_summary)
         return {
             "status": "success",
             "data": {"markdown": markdown_content},
@@ -53,7 +53,7 @@ async def download_report(
 
     try:
         markdown_content = await generate_report(
-            db, project_id, include_ai_summary=False
+            db, uuid.UUID(project_id), include_ai_summary=False
         )
         return PlainTextResponse(content=markdown_content, media_type="text/markdown")
     except Exception as e:

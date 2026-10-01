@@ -1,5 +1,12 @@
 import uuid
-from typing import Optional, List
+from typing import TYPE_CHECKING, Optional, List
+
+if TYPE_CHECKING:
+    from helios.models.user import User
+    from helios.models.target import Target
+    from helios.models.host import Host
+    from helios.models.finding import Finding
+    from helios.models.project_file import ProjectFile
 from sqlalchemy import String, Text, ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 

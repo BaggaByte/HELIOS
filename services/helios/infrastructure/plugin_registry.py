@@ -10,6 +10,8 @@ class PluginRegistry:
     """Singleton registry holding all active HELIOS plugins."""
 
     _instance = None
+    _plugins: dict[str, BasePlugin]
+    _is_loaded: bool
 
     def __new__(cls):
         if cls._instance is None:

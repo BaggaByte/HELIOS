@@ -314,7 +314,7 @@ async def ingest_nmap(
                 if port is None:
                     continue
 
-                result = await db.execute(
+                svc_result = await db.execute(
                     select(Service).where(
                         and_(
                             Service.host_id == host.id,
@@ -323,7 +323,7 @@ async def ingest_nmap(
                         )
                     )
                 )
-                service = result.scalars().first()
+                service = svc_result.scalars().first()
                 version_str = svc_info.get("version_string") or svc_info.get("version")
 
                 if not service:
@@ -516,7 +516,7 @@ _HOST_DISCOVERY_PLUGINS = {"nmap"}
 
 # Recon plugins: output returned as structured JSON only.
 # (Disabled for first release until persistence and scope logic is implemented for each).
-_RECON_PLUGINS = set()
+_RECON_PLUGINS: set[str] = set()
 
 _ALL_SUPPORTED_PLUGINS = _HOST_DISCOVERY_PLUGINS | _RECON_PLUGINS
 
@@ -554,7 +554,7 @@ async def list_recon_plugins():
 async def execute_recon_plugin(
     project_id: str = Path(...),
     plugin_name: str = Path(...),
-    request: PluginExecuteRequest = ...,
+    request: PluginExecuteRequest,
     db: AsyncSession = Depends(get_db_session),
 ):
     from helios.infrastructure.plugin_registry import plugin_registry

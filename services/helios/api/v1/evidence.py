@@ -28,8 +28,8 @@ async def get_project_or_404(project_id: str, db: AsyncSession) -> Project:
 
 
 async def get_or_create_stub_finding(
-    project_id: uuid.UUID, db: AsyncSession
-) -> uuid.UUID:
+    project_id: str, db: AsyncSession
+) -> str:
     """Return the first finding for this project, or create a stub if none exist."""
     result = await db.execute(
         select(Finding).where(Finding.project_id == project_id).limit(1)
