@@ -1,5 +1,5 @@
 from fastapi import APIRouter, HTTPException, Depends, Path, status
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from typing import Optional, List
@@ -8,6 +8,7 @@ import uuid
 
 from helios.infrastructure.database import get_db_session
 from helios.models.project import Project
+from helios.utils.validators import is_valid_cidr, is_valid_domain, is_valid_ip
 
 router = APIRouter()
 
@@ -21,6 +22,25 @@ class ProjectCreate(BaseModel):
     description: Optional[str] = None
     scope: str
     out_of_scope: Optional[str] = None
+
+    @field_validator("name", "scope")
+    @classmethod
+    def require_nonempty_value(cls, value: str) -> str:
+        value = value.strip()
+        if not value:
+            raise ValueError("This field cannot be empty")
+        return value
+
+    @field_validator("scope", "out_of_scope")
+    @classmethod
+    def validate_scope_entries(cls, value: Optional[str]) -> Optional[str]:
+        if value is None or not value.strip():
+            return None if value is None else ""
+        entries = [entry.strip() for entry in value.replace(";", ",").replace("\n", ",").split(",") if entry.strip()]
+        invalid = [entry for entry in entries if not (is_valid_ip(entry) or is_valid_cidr(entry) or is_valid_domain(entry))]
+        if invalid:
+            raise ValueError(f"Scope entries must be IP addresses, CIDRs, or domains: {', '.join(invalid)}")
+        return ", ".join(entries)
 
 
 class ProjectUpdate(BaseModel):
@@ -60,9 +80,19 @@ class ProjectResponse(BaseModel):
 # Endpoints
 # ──────────────────────────────────────────────────────────────
 
+from helios.api.v1.auth import get_current_user
+from helios.models.user import User
+
 @router.get("", response_model=List[ProjectResponse], summary="List all projects")
-async def list_projects(db: AsyncSession = Depends(get_db_session)):
-    result = await db.execute(select(Project).order_by(Project.created_at.desc()))
+async def list_projects(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db_session)
+):
+    result = await db.execute(
+        select(Project)
+        .where(Project.created_by == current_user.id)
+        .order_by(Project.created_at.desc())
+    )
     projects = result.scalars().all()
     return [ProjectResponse.from_orm(p) for p in projects]
 
@@ -70,6 +100,7 @@ async def list_projects(db: AsyncSession = Depends(get_db_session)):
 @router.post("", response_model=ProjectResponse, status_code=status.HTTP_201_CREATED, summary="Create a project")
 async def create_project(
     project: ProjectCreate,
+    current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db_session),
 ):
     new_project = Project(
@@ -78,6 +109,7 @@ async def create_project(
         scope=project.scope,
         out_of_scope=project.out_of_scope,
         status="active",
+        created_by=current_user.id
     )
     db.add(new_project)
     await db.commit()
@@ -88,24 +120,26 @@ async def create_project(
 @router.get("/{project_id}", response_model=ProjectResponse, summary="Get a project")
 async def get_project(
     project_id: str = Path(...),
+    current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db_session),
 ):
     result = await db.execute(select(Project).where(Project.id == project_id))
     project = result.scalars().first()
-    if not project:
+    if not project or project.created_by != current_user.id:
         raise HTTPException(status_code=404, detail="Project not found")
     return ProjectResponse.from_orm(project)
 
 
 @router.put("/{project_id}", response_model=ProjectResponse, summary="Update a project")
 async def update_project(
+    body: ProjectUpdate,
     project_id: str = Path(...),
-    body: ProjectUpdate = ...,
+    current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db_session),
 ):
     result = await db.execute(select(Project).where(Project.id == project_id))
     project = result.scalars().first()
-    if not project:
+    if not project or project.created_by != current_user.id:
         raise HTTPException(status_code=404, detail="Project not found")
 
     if body.name is not None:
@@ -123,12 +157,59 @@ async def update_project(
 @router.delete("/{project_id}", status_code=status.HTTP_204_NO_CONTENT, summary="Delete a project")
 async def delete_project(
     project_id: str = Path(...),
+    current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db_session),
 ):
     result = await db.execute(select(Project).where(Project.id == project_id))
     project = result.scalars().first()
-    if not project:
+    if not project or project.created_by != current_user.id:
         raise HTTPException(status_code=404, detail="Project not found")
+
+    # Clean up physical files and vector store entries before deleting DB rows
+    import os
+    from helios.models.evidence import Evidence
+    from helios.models.finding import Finding
+    from helios.models.project_file import ProjectFile
+    from helios.infrastructure.storage import StorageManager
+    from helios.infrastructure.vector_store import VectorStore
+
+    storage = StorageManager()
+    vector_store = VectorStore()
+
+    # 1. Evidence files (linked through Finding)
+    ev_result = await db.execute(
+        select(Evidence).join(Finding, Evidence.finding_id == Finding.id)
+        .where(Finding.project_id == project_id)
+    )
+    for ev in ev_result.scalars().all():
+        if ev.file_path and os.path.exists(ev.file_path):
+            try:
+                os.remove(ev.file_path)
+            except OSError as e:
+                import logging
+                logging.getLogger(__name__).warning(f"Could not delete evidence file: {e}")
+
+    # 2. Project files and their vector entries
+    pf_result = await db.execute(
+        select(ProjectFile).where(ProjectFile.project_id == project_id)
+    )
+    for pf in pf_result.scalars().all():
+        await storage.delete_file(pf.storage_id)
+        # We don't have a direct delete_document in vector_store, but if we did, we'd call it.
+        # Minimal impact to leave orphaned embeddings without DB reference, but 
+        # ideally Chroma DB allows deletion by metadata.
+        try:
+            vector_store.docs_collection.delete(where={"project_id": project_id})
+        except Exception:
+            pass
+            
+    # 3. Finding vector entries
+    try:
+        vector_store.findings_collection.delete(where={"project_id": project_id})
+    except Exception:
+        pass
+
+    # Delete project row (which cascades to Findings, Evidence, ProjectFiles if configured)
     await db.delete(project)
     await db.commit()
     return None
@@ -136,13 +217,14 @@ async def delete_project(
 
 @router.post("/{project_id}/scope", response_model=ProjectResponse, summary="Update project scope")
 async def update_project_scope(
+    scope_update: ProjectUpdateScope,
     project_id: str = Path(...),
-    scope_update: ProjectUpdateScope = ...,
+    current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db_session),
 ):
     result = await db.execute(select(Project).where(Project.id == project_id))
     project = result.scalars().first()
-    if not project:
+    if not project or project.created_by != current_user.id:
         raise HTTPException(status_code=404, detail="Project not found")
 
     project.scope = scope_update.scope

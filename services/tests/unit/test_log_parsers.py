@@ -187,7 +187,7 @@ class TestTimelineBuilder:
 
     def test_unsupported_type_raises(self):
         with pytest.raises(ValueError, match="Unsupported log type"):
-            parse_log_file("some log content", "windows_event")
+            parse_log_file("some log content", "some_random_unsupported_type")
 
     def test_invalid_lines_skipped_gracefully(self):
         log_content = "invalid line\n" + APACHE_200 + "\nanother bad line"

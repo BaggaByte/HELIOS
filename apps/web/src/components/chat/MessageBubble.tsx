@@ -26,12 +26,12 @@ export function MessageBubble({ message }: MessageBubbleProps) {
   return (
     <div className={cn(
       "flex w-full gap-4 p-6 transition-all animate-in fade-in slide-in-from-bottom-2 duration-300 relative",
-      isUser ? "bg-transparent" : "bg-surface-secondary/20 backdrop-blur-sm border-y border-border-default/20 shadow-[inset_0_1px_0_rgba(255,255,255,0.02)]",
+      isUser ? "bg-transparent" : "bg-surface-secondary/20  border-y border-border-default/20 shadow-[inset_0_1px_0_rgba(255,255,255,0.02)]",
       isError && "bg-severity-critical/5 border-severity-critical/20"
     )}>
       <div className="flex-shrink-0 mt-1 relative z-10">
         {isUser ? (
-          <div className="w-8 h-8 rounded-full bg-surface-tertiary/50 backdrop-blur flex items-center justify-center border border-border-default shadow-md">
+          <div className="w-8 h-8 rounded-full bg-surface-tertiary/50  flex items-center justify-center border border-border-default shadow-md">
             <User size={18} className="text-gray-300" />
           </div>
         ) : (
@@ -47,7 +47,7 @@ export function MessageBubble({ message }: MessageBubbleProps) {
       </div>
 
       <div className={cn(
-        "flex-1 min-w-0 prose prose-invert max-w-none text-gray-200 prose-pre:bg-surface-primary/80 prose-pre:backdrop-blur-md prose-pre:border prose-pre:border-border-default/50 prose-pre:shadow-xl relative z-10",
+        "flex-1 min-w-0 prose prose-invert max-w-none text-gray-200 prose-pre:bg-surface-primary/80 prose-pre: prose-pre:border prose-pre:border-border-default/50 prose-pre:shadow-md relative z-10",
         isStreaming && "streaming-cursor"
       )}>
         {message.agentStatus && (
@@ -66,8 +66,8 @@ export function MessageBubble({ message }: MessageBubbleProps) {
                 const codeString = String(children).replace(/\n$/, '')
 
                 return !isInline && match ? (
-                  <div className="relative group rounded-xl bg-surface-primary/80 backdrop-blur-md border border-border-default/50 my-4 overflow-hidden not-prose shadow-lg transition-all hover:shadow-xl hover:border-border-default">
-                    <div className="flex items-center justify-between px-4 py-2.5 bg-surface-tertiary/40 border-b border-border-default/50 backdrop-blur">
+                  <div className="relative group rounded-xl bg-surface-primary/80  border border-border-default/50 my-4 overflow-hidden not-prose shadow-lg transition-all hover:shadow-md hover:border-border-default">
+                    <div className="flex items-center justify-between px-4 py-2.5 bg-surface-tertiary/40 border-b border-border-default/50 ">
                       <span className="text-xs text-gray-400 font-mono uppercase tracking-wider">{match[1]}</span>
                       <button
                         onClick={() => handleCopy(codeString)}

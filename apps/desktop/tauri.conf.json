@@ -1,13 +1,13 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "helios",
+  "productName": "HELIOS",
   "version": "0.1.0",
   "identifier": "com.baggabyte.helios",
   "build": {
     "frontendDist": "../web/dist",
-    "devUrl": "http://localhost:5173",
-    "beforeDevCommand": "npm run dev",
-    "beforeBuildCommand": "npm run build"
+    "devUrl": "http://localhost:3000",
+    "beforeDevCommand": "npm --prefix ../.. run dev",
+    "beforeBuildCommand": "npm --prefix ../.. run build"
   },
   "app": {
     "windows": [
@@ -22,10 +22,20 @@
       }
     ],
     "security": {
-      "csp": null
+      "csp": "default-src 'self'; img-src 'self' data: blob:; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self' ipc: http://ipc.localhost http://localhost:* ws://localhost:*"
+    }
+  },
+  "plugins": {
+    "shell": {
+      "all": false,
+      "execute": [],
+      "open": true
     }
   },
   "bundle": {
+    "externalBin": [
+      "bin/helios_backend"
+    ],
     "active": true,
     "targets": "all",
     "icon": [

@@ -30,17 +30,29 @@ export const sourceCodeService = {
    * Fetches all analyzed files for a given project.
    */
   async getAnalyzedFiles(projectId: string): Promise<AnalyzedFile[]> {
-    return await apiClient.get<AnalyzedFile[]>(`/source-code/files?project_id=${projectId}`);
+    const findings = await apiClient.get<Array<{ id: string; title: string; severity: string; cwe_id?: string; created_at?: string }>>(`/projects/${projectId}/source-code/findings`);
+    return findings.map(finding => ({
+      id: finding.id,
+      filename: finding.title,
+      language: 'finding',
+      code: '',
+      imports: [],
+      functions: [],
+      classes: [],
+      security_findings: [{ type: 'VULNERABILITY', severity: finding.severity.toUpperCase() as CodeFinding['severity'], line: 0, description: finding.title }],
+      analyzed_at: finding.created_at ?? '',
+    }));
   },
 
   /**
    * Submits raw code for static analysis.
    */
-  async analyzeSnippet(code: string, language: string, filename: string = 'snippet.py'): Promise<AnalyzedFile> {
-    return await apiClient.post<AnalyzedFile>(`/source-code/analyze`, {
+  async analyzeSnippet(projectId: string, code: string, language: string, filename: string = 'snippet.py'): Promise<AnalyzedFile> {
+    const result = await apiClient.post<Omit<AnalyzedFile, 'code' | 'imports' | 'functions' | 'classes'>>(`/projects/${projectId}/source-code/analyze`, {
       code,
       language_hint: language,
       filename
     });
+    return { ...result, code, imports: [], functions: [], classes: [] };
   }
 };

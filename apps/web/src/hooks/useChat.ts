@@ -1,6 +1,7 @@
 import { useCallback, useEffect } from 'react';
 import { useWebSocket } from './useWebSocket';
 import { useChatStore } from '../stores/chatStore';
+import { useProjectStore } from '../stores/projectStore';
 import { API_BASE_URL } from '../services/apiClient';
 
 export interface ChatMessage {
@@ -19,9 +20,10 @@ export interface StreamEvent {
   error?: string;
 }
 
-const DEFAULT_WS_URL = API_BASE_URL.replace(/^http/, 'ws') + '/chat/stream';
-
-export function useChat(wsUrl: string = DEFAULT_WS_URL) {
+export function useChat() {
+  const projectId = useProjectStore(state => state.activeProjectId);
+  const wsBase = API_BASE_URL.replace(/^http:/, 'ws:').replace(/^https:/, 'wss:');
+  const wsUrl = projectId ? `${wsBase}/chat/stream/${encodeURIComponent(projectId)}` : '';
   const { 
     messages, 
     activeAssistantMsgId,
@@ -33,7 +35,11 @@ export function useChat(wsUrl: string = DEFAULT_WS_URL) {
     setConnectionStatus
   } = useChatStore();
 
-  const { isConnected, sendMessage, subscribe } = useWebSocket<StreamEvent>(wsUrl);
+  const { isConnected, sendMessage, subscribe } = useWebSocket<StreamEvent>(wsUrl, { enabled: Boolean(projectId) });
+
+  useEffect(() => {
+    useChatStore.setState({ messages: [], activeAssistantMsgId: null });
+  }, [projectId]);
 
   // Sync connection status to global store
   useEffect(() => {

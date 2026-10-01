@@ -3,6 +3,7 @@ import { Upload, Lock, ShieldCheck, Camera, FileText, Loader2 } from 'lucide-rea
 import { useEvidence } from '../../hooks/useEvidence';
 import { EvidenceCard } from './EvidenceCard';
 import { cn } from '../../lib/utils';
+import { useProjectStore } from '../../stores/projectStore';
 
 export function EvidenceDashboard() {
   const { evidenceList, isLoading, uploadEvidence, isUploading, error } = useEvidence();
@@ -11,6 +12,8 @@ export function EvidenceDashboard() {
   const [description, setDescription] = useState('');
   const [type, setType] = useState('screenshot');
   const [dragActive, setDragActive] = useState(false);
+  const [uploadErrorMsg, setUploadErrorMsg] = useState<string | null>(null);
+  const activeProjectId = useProjectStore(state => state.activeProjectId);
 
   const handleDrag = (e: React.DragEvent) => {
     e.preventDefault();
@@ -38,12 +41,14 @@ export function EvidenceDashboard() {
   };
 
   const uploadFile = async (file: File) => {
+    setUploadErrorMsg(null);
     try {
       await uploadEvidence({ file, description, type });
       setDescription(''); // Reset after upload
       if (fileInputRef.current) fileInputRef.current.value = '';
-    } catch (err) {
+    } catch (err: any) {
       console.error("Upload failed", err);
+      setUploadErrorMsg(err.message || 'Upload failed. Please try again.');
     }
   };
 
@@ -126,9 +131,17 @@ export function EvidenceDashboard() {
                 </span>
               </div>
 
-              {error && (
-                <div className="text-xs text-severity-critical bg-severity-critical/10 p-2 rounded border border-severity-critical/20">
-                  {error.message}
+              {(error || uploadErrorMsg) && (
+                <div className="text-xs text-severity-critical bg-severity-critical/10 p-2 rounded border border-severity-critical/20 flex items-center justify-between">
+                  <span>{uploadErrorMsg || error?.message}</span>
+                  {uploadErrorMsg && (
+                    <button 
+                      onClick={() => setUploadErrorMsg(null)}
+                      className="hover:text-white px-1 font-bold ml-2"
+                    >
+                      Dismiss
+                    </button>
+                  )}
                 </div>
               )}
             </div>
@@ -156,6 +169,14 @@ export function EvidenceDashboard() {
               {evidenceList.map(ev => (
                 <EvidenceCard key={ev.id} evidence={ev} />
               ))}
+            </div>
+          ) : !activeProjectId ? (
+            <div className="h-full flex flex-col items-center justify-center text-gray-500 animate-in fade-in">
+              <ShieldCheck size={48} className="mb-4 opacity-50 text-amber-400" />
+              <h3 className="text-xl font-semibold text-gray-300 mb-2">No Project Selected</h3>
+              <p className="text-sm text-center max-w-md">
+                You must select or create a project before uploading evidence. This ensures all files are securely isolated and properly attributed.
+              </p>
             </div>
           ) : (
             <div className="h-full flex flex-col items-center justify-center text-gray-500 animate-in fade-in">

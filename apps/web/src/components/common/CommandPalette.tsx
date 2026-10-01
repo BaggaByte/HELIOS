@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Search,
@@ -13,7 +13,6 @@ import {
   Settings,
   MessageSquare,
   Zap,
-  ShieldAlert,
   Terminal,
   Cpu,
   CornerDownLeft,
@@ -39,6 +38,9 @@ export function CommandPalette({ isOpen, onClose }: CommandPaletteProps) {
   const navigate = useNavigate();
   const [query, setQuery] = useState('');
   const [selectedIndex, setSelectedIndex] = useState(0);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const modalRef = useRef<HTMLDivElement>(null);
+  const previousFocusRef = useRef<HTMLElement | null>(null);
 
   const commands: CommandItem[] = useMemo(() => [
     // Navigation
@@ -68,11 +70,11 @@ export function CommandPalette({ isOpen, onClose }: CommandPaletteProps) {
     },
     {
       id: 'nav-web',
-      title: 'Web Security & HTTP Repeater',
+      title: 'Web Security',
       category: 'Navigation',
       icon: Globe,
       action: () => { navigate('/web'); onClose(); },
-      description: 'Vulnerability triage, DAST scan & HTTP proxy repeater'
+      description: 'Review findings or import a ZAP report'
     },
     {
       id: 'nav-code',
@@ -88,7 +90,7 @@ export function CommandPalette({ isOpen, onClose }: CommandPaletteProps) {
       category: 'Navigation',
       icon: FileText,
       action: () => { navigate('/logs'); onClose(); },
-      description: 'Multi-source log correlation & timeline reconstruction'
+      description: 'View and filter ingested security logs'
     },
     {
       id: 'nav-malware',
@@ -108,11 +110,11 @@ export function CommandPalette({ isOpen, onClose }: CommandPaletteProps) {
     },
     {
       id: 'nav-evidence',
-      title: 'Cryptographic Evidence Locker',
+      title: 'Evidence Locker',
       category: 'Navigation',
       icon: Database,
       action: () => { navigate('/evidence'); onClose(); },
-      description: 'SHA-256 chain-of-custody and tamper-evident proof'
+      description: 'Manage and view stored project evidence'
     },
     {
       id: 'nav-reports',
@@ -120,79 +122,53 @@ export function CommandPalette({ isOpen, onClose }: CommandPaletteProps) {
       category: 'Navigation',
       icon: FileBox,
       action: () => { navigate('/reports'); onClose(); },
-      description: 'Generate executive summaries and MITRE-mapped briefs'
+      description: 'Generate Markdown executive summaries and briefs'
     },
     {
       id: 'nav-settings',
-      title: 'System Settings & Engine Configuration',
+      title: 'System Settings',
       category: 'Navigation',
       icon: Settings,
       action: () => { navigate('/settings'); onClose(); },
-      description: 'Configure OpenVINO AI, binary tool paths & API keys'
+      description: 'Configure application settings and preferences'
     },
 
     // Quick Actions
     {
       id: 'act-new-scan',
-      title: 'Launch Fast Network SYN Sweep',
+      title: 'Open Recon',
       category: 'Actions',
       icon: Target,
-      shortcut: 'S',
       action: () => { navigate('/recon'); onClose(); },
-      description: 'Execute automated multi-port discovery on active scope'
+      description: 'Navigate to network reconnaissance tools'
     },
-    {
-      id: 'act-repeater',
-      title: 'Open HTTP Request Repeater / Fuzzer',
-      category: 'Actions',
-      icon: Globe,
-      shortcut: 'R',
-      action: () => { navigate('/web'); onClose(); },
-      description: 'Craft and replay custom HTTP payload requests'
-    },
+
     {
       id: 'act-yara',
-      title: 'Execute YARA Signature Match',
+      title: 'Open Malware Triage',
       category: 'Actions',
       icon: Terminal,
-      shortcut: 'Y',
       action: () => { navigate('/malware'); onClose(); },
-      description: 'Scan binary artifacts against ruleset database'
+      description: 'Navigate to binary analysis and YARA scanning'
     },
     {
       id: 'act-export-report',
-      title: 'Export Executive Security Report (PDF)',
+      title: 'Open Report Studio',
       category: 'Actions',
       icon: FileBox,
-      shortcut: 'E',
       action: () => { navigate('/reports'); onClose(); },
-      description: 'Compile active engagement findings into formal report'
+      description: 'Navigate to Markdown report generator'
     },
 
     // Targets & Vulnerabilities
-    {
-      id: 'target-api-prod',
-      title: 'Target: api.internal.helios.corp (192.168.1.15)',
-      category: 'Targets',
-      icon: Target,
-      action: () => { navigate('/recon'); onClose(); },
-      description: 'Ports 22, 80, 443, 8080 open • Apache 2.4.49'
-    },
-    {
-      id: 'vuln-cve-2021-41773',
-      title: 'Vulnerability: CVE-2021-41773 Apache Path Traversal',
-      category: 'Vulnerabilities',
-      icon: ShieldAlert,
-      action: () => { navigate('/web'); onClose(); },
-      description: 'Critical CVSS 9.8 • Remote Code Execution confirmed'
-    },
+
     {
       id: 'intel-openvino',
-      title: 'AI Engine: Local OpenVINO Qwen-2.5-Coder',
+      title: 'AI Engine: Local OpenVINO Phi-4 Runtime',
       category: 'Intelligence',
       icon: Cpu,
       action: () => { navigate('/settings'); onClose(); },
-      description: 'Device: Intel NPU/GPU • Context: 32,768 tokens • Ready'
+      description: 'Device: Intel NPU/GPU/CPU'
     }
   ], [navigate, onClose]);
 
@@ -207,6 +183,23 @@ export function CommandPalette({ isOpen, onClose }: CommandPaletteProps) {
   }, [commands, query]);
 
   const activeIndex = Math.min(selectedIndex, Math.max(0, filteredCommands.length - 1));
+
+  useEffect(() => {
+    if (isOpen) {
+      previousFocusRef.current = document.activeElement as HTMLElement;
+      // Focus modal's first focusable element (input)
+      setTimeout(() => {
+        if (inputRef.current) inputRef.current.focus();
+      }, 0);
+    } else {
+      if (previousFocusRef.current) {
+        previousFocusRef.current.focus();
+        previousFocusRef.current = null;
+      }
+      setQuery('');
+      setSelectedIndex(0);
+    }
+  }, [isOpen]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -226,6 +219,21 @@ export function CommandPalette({ isOpen, onClose }: CommandPaletteProps) {
       } else if (e.key === 'Escape') {
         e.preventDefault();
         onClose();
+      } else if (e.key === 'Tab') {
+        const modal = modalRef.current;
+        if (!modal) return;
+        const focusable = modal.querySelectorAll<HTMLElement>('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
+        if (focusable.length === 0) return;
+        const first = focusable[0];
+        const last = focusable[focusable.length - 1];
+
+        if (e.shiftKey && document.activeElement === first) {
+          e.preventDefault();
+          last.focus();
+        } else if (!e.shiftKey && document.activeElement === last) {
+          e.preventDefault();
+          first.focus();
+        }
       }
     };
 
@@ -236,25 +244,36 @@ export function CommandPalette({ isOpen, onClose }: CommandPaletteProps) {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-start justify-center pt-20 p-4 animate-in fade-in duration-200">
+    <div 
+      className="fixed inset-0 z-50 bg-black/70  flex items-start justify-center pt-20 p-4 animate-in fade-in duration-200" 
+      role="dialog" 
+      aria-modal="true" 
+      aria-label="Command Palette"
+      ref={modalRef}
+      onClick={onClose}
+    >
       <div 
-        className="w-full max-w-2xl bg-surface-secondary border border-border-default rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[80vh] divide-y divide-border-default"
+        className="w-full max-w-2xl bg-surface-secondary border border-border-default rounded-2xl shadow-lg overflow-hidden flex flex-col max-h-[80vh] divide-y divide-border-default"
         onClick={e => e.stopPropagation()}
       >
         {/* Search Input Bar */}
         <div className="flex items-center px-4 py-3.5 bg-surface-tertiary/40">
           <Search size={20} className="text-border-active mr-3 shrink-0" />
           <input
+            ref={inputRef}
             type="text"
             value={query}
-            onChange={e => setQuery(e.target.value)}
-            placeholder="Type a command, target IP, CVE, or tool..."
+            onChange={e => {
+              setQuery(e.target.value);
+              setSelectedIndex(0);
+            }}
+            placeholder="Type a command to navigate..."
             className="w-full bg-transparent border-none text-gray-100 text-base placeholder-gray-500 focus:outline-none"
-            autoFocus
           />
           <button 
             onClick={onClose}
             className="p-1 rounded-lg hover:bg-surface-hover text-gray-400 hover:text-gray-200 transition-colors ml-2"
+            aria-label="Close"
           >
             <X size={18} />
           </button>
@@ -288,7 +307,7 @@ export function CommandPalette({ isOpen, onClose }: CommandPaletteProps) {
                     <div className="min-w-0">
                       <div className="flex items-center gap-2">
                         <span className="text-sm font-semibold truncate text-gray-100">{cmd.title}</span>
-                        <span className="text-[10px] uppercase font-bold tracking-wider px-1.5 py-0.5 rounded bg-surface-primary text-gray-400 border border-border-default shrink-0">
+                        <span className="text-xs uppercase font-bold tracking-wider px-1.5 py-0.5 rounded bg-surface-primary text-gray-400 border border-border-default shrink-0">
                           {cmd.category}
                         </span>
                       </div>
@@ -317,9 +336,9 @@ export function CommandPalette({ isOpen, onClose }: CommandPaletteProps) {
         {/* Footer shortcuts */}
         <div className="px-4 py-2 bg-surface-primary text-xs text-gray-500 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <span><kbd className="px-1 py-0.5 bg-surface-tertiary rounded text-[10px] font-mono">↑</kbd> <kbd className="px-1 py-0.5 bg-surface-tertiary rounded text-[10px] font-mono">↓</kbd> to navigate</span>
-            <span><kbd className="px-1 py-0.5 bg-surface-tertiary rounded text-[10px] font-mono">↵</kbd> to select</span>
-            <span><kbd className="px-1 py-0.5 bg-surface-tertiary rounded text-[10px] font-mono">esc</kbd> to dismiss</span>
+            <span><kbd className="px-1 py-0.5 bg-surface-tertiary rounded text-xs font-mono">↑</kbd> <kbd className="px-1 py-0.5 bg-surface-tertiary rounded text-xs font-mono">↓</kbd> to navigate</span>
+            <span><kbd className="px-1 py-0.5 bg-surface-tertiary rounded text-xs font-mono">↵</kbd> to select</span>
+            <span><kbd className="px-1 py-0.5 bg-surface-tertiary rounded text-xs font-mono">esc</kbd> to dismiss</span>
           </div>
           <span className="font-mono text-border-active/80">HELIOS v1.4.0 Engine</span>
         </div>

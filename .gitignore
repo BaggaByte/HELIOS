@@ -31,18 +31,24 @@ dist/
 
 # ── Rust / Tauri ──────────────────────────────────────────────
 target/
-Cargo.lock
+# NOTE: Cargo.lock is intentionally committed for deterministic release builds.
+# See: https://doc.rust-lang.org/cargo/faq.html#why-do-binaries-have-cargolock-in-version-control
 
 # ── Database & data ───────────────────────────────────────────
 *.db
 *.db-shm
 *.db-wal
 services/data/
-services/models/
-
+models/
 # ── OS / IDE ──────────────────────────────────────────────────
 .DS_Store
 Thumbs.db
 .vscode/
 .idea/
 *.swp
+.rocketride/
+.claude/
+
+# ── Build Artifacts ───────────────────────────────────────────
+apps/desktop/bin/
+*.spec

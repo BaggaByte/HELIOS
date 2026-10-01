@@ -5,11 +5,13 @@ import { MessageBubble } from '../../components/chat/MessageBubble';
 import { useChat } from '../../hooks/useChat';
 import { useFileUpload } from '../../hooks/useFileUpload';
 import { cn } from '../../lib/utils';
+import { useProjectStore } from '../../stores/projectStore';
 
 export function ChatPanel() {
   const location = useLocation();
   const [input, setInput] = useState(() => location.state?.initialPrompt || '');
   const { messages, isConnected, sendUserMessage } = useChat();
+  const activeProjectId = useProjectStore(state => state.activeProjectId);
   const { uploadFile, isUploading } = useFileUpload();
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -82,9 +84,9 @@ export function ChatPanel() {
   };
 
   const suggestedPrompts = [
-    "Analyze the SQL injection vulnerability found in the login portal.",
-    "Explain the reverse engineering findings of the malware sample.",
-    "Generate a remediation plan for the exposed AWS S3 buckets.",
+    "What is the best way to secure an exposed MySQL database?",
+    "How can I extract IoCs from a Windows executable?",
+    "Generate a basic remediation plan for common web vulnerabilities.",
   ];
 
   return (
@@ -96,7 +98,7 @@ export function ChatPanel() {
     >
       {/* Drag Overlay */}
       {isDragging && (
-        <div className="absolute inset-0 z-50 bg-bg-primary/80 backdrop-blur-sm border-2 border-dashed border-border-active flex flex-col items-center justify-center rounded-lg m-4">
+        <div className="absolute inset-0 z-50 bg-bg-primary/80  border-2 border-dashed border-border-active flex flex-col items-center justify-center rounded-lg m-4">
           <FileIcon size={48} className="text-border-active mb-4 animate-bounce" />
           <h2 className="text-2xl font-semibold text-gray-200">Drop files to upload</h2>
           <p className="text-gray-400 mt-2">Logs, PCAPs, scripts, or reports</p>
@@ -107,12 +109,15 @@ export function ChatPanel() {
       <div className="flex-shrink-0 h-14 border-b border-border-default/50 flex items-center px-6 glass-panel sticky top-0 z-10">
         <Terminal size={20} className="text-border-active mr-3 shadow-[0_0_10px_rgb(var(--border-active))]" />
         <h2 className="text-sm font-semibold text-gray-100 tracking-wide neon-text">HELIOS Offensive Copilot</h2>
-        <div className="ml-auto flex items-center gap-2">
-          <div className={cn(
-            "w-2 h-2 rounded-full shadow-[0_0_8px]",
-            isConnected ? 'bg-severity-low shadow-severity-low' : 'bg-severity-critical shadow-severity-critical animate-pulse'
-          )} />
-          <span className="text-xs font-medium text-gray-400">{isConnected ? 'NPU Active' : 'Disconnected'}</span>
+        <div className="ml-auto flex items-center gap-4">
+
+          <div className="flex items-center gap-2">
+            <div className={cn(
+              "w-2 h-2 rounded-full shadow-[0_0_8px]",
+              isConnected ? 'bg-severity-low shadow-severity-low' : 'bg-severity-critical shadow-severity-critical animate-pulse'
+            )} />
+            <span className="text-xs font-medium text-gray-400">{isConnected ? 'Connected' : 'Disconnected'}</span>
+          </div>
         </div>
       </div>
 
@@ -136,7 +141,7 @@ export function ChatPanel() {
                     setInput(prompt);
                     textareaRef.current?.focus();
                   }}
-                  className="text-left p-4 rounded-xl border border-border-default/50 bg-surface-secondary/40 backdrop-blur hover:bg-surface-tertiary/60 hover:border-border-active/50 transition-all text-sm text-gray-300 shadow-lg hover:-translate-y-1 hover:shadow-xl hover:shadow-border-active/10 duration-300"
+                  className="text-left p-4 rounded-xl border border-border-default/50 bg-surface-secondary/40  hover:bg-surface-tertiary/60 hover:border-border-active/50 transition-all text-sm text-gray-300 shadow-lg hover:-translate-y-1 hover:shadow-md hover:shadow-border-active/10 duration-300"
                 >
                   {prompt}
                 </button>
@@ -162,7 +167,7 @@ export function ChatPanel() {
             </div>
           )}
           <div className={cn(
-            "flex items-end gap-2 bg-surface-secondary/40 backdrop-blur rounded-2xl transition-all duration-300 shadow-lg",
+            "flex items-end gap-2 bg-surface-secondary/40  rounded-2xl transition-all duration-300 shadow-lg",
             isConnected ? "border border-border-default/50 focus-within:border-border-active focus-within:bg-surface-tertiary/40 focus-within:shadow-[0_0_15px_rgb(var(--border-active)/0.2)]" : "border border-severity-critical/50 bg-severity-critical/5"
           )}>
             <input 
@@ -189,7 +194,7 @@ export function ChatPanel() {
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder={isConnected ? "Ask HELIOS to analyze an exploit or explain a finding..." : "System offline..."}
+              placeholder={!activeProjectId ? "Create or select a project to start..." : isConnected ? "Ask HELIOS to analyze an exploit or explain a finding..." : "Connecting to local analysis..."}
               className="flex-1 bg-transparent border-none pl-1 pr-2 py-3.5 text-sm text-gray-200 placeholder:text-gray-500 focus:outline-none resize-none min-h-[52px] max-h-48"
               rows={1}
               disabled={!isConnected}

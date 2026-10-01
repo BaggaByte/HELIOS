@@ -160,8 +160,14 @@ async def sync_finding(
     project_id: str,
     finding,
     service_node: Optional[KnowledgeNode] = None,
+    host_node: Optional[KnowledgeNode] = None,
 ) -> KnowledgeNode:
-    """Upsert a Finding row as a node, linked to its service via HAS_FINDING."""
+    """
+    Upsert a Finding row as a node, linked to its parent via HAS_FINDING.
+    To prevent orphaned nodes, it links to service_node if provided,
+    else host_node if provided, else falls back to linking directly
+    to a root Project node.
+    """
     finding_node = await upsert_node(
         db, project_id,
         node_type="finding",
@@ -174,12 +180,33 @@ async def sync_finding(
             "ref_id": finding.id,
         },
     )
+
     if service_node is not None:
         await upsert_edge(
             db, project_id, service_node, finding_node,
             relation="HAS_FINDING",
             properties={"severity": finding.severity},
         )
+    elif host_node is not None:
+        await upsert_edge(
+            db, project_id, host_node, finding_node,
+            relation="HAS_FINDING",
+            properties={"severity": finding.severity},
+        )
+    else:
+        # Fallback to prevent orphaned nodes in the graph
+        project_node = await upsert_node(
+            db, project_id,
+            node_type="project",
+            label="Project Context",
+            key=f"project:{project_id}",
+        )
+        await upsert_edge(
+            db, project_id, project_node, finding_node,
+            relation="HAS_FINDING",
+            properties={"severity": finding.severity},
+        )
+
     return finding_node
 
 

@@ -26,34 +26,49 @@ class NmapPlugin(BasePlugin):
         Executes an Nmap scan.
         payload = {
             "target": "127.0.0.1",
-            "args": "-sV -p-" # optional
+            "args": "-sV -p-"  # optional
         }
+
+        Always returns a dict with a "status" key:
+          {"status": "success", "hosts": [...]}   — scan ran (zero hosts is valid)
+          {"status": "error",   "error": "..."}   — binary missing, exec failed, etc.
         """
         target = payload.get("target")
         if not target:
-            return {"error": "Missing 'target' in payload."}
-            
+            return {"status": "error", "error": "Missing 'target' in payload."}
+
         args = payload.get("args", "-sV --top-ports 100")
-        
+
         # Build command. Always enforce XML output for parsing
         command = ["nmap", "-oX", "-"] + args.split() + [target]
-        
+
         logger.info(f"Executing Nmap Plugin: {' '.join(command)}")
-        
+
         try:
-            result = subprocess.run(command, capture_output=True, text=True, check=False)
-            
-            if result.returncode != 0 and not result.stdout:
-                return {"error": f"Nmap execution failed: {result.stderr}"}
-                
+            result = subprocess.run(command, capture_output=True, text=True, check=False, timeout=300)
+
+            if result.returncode != 0 and not result.stdout.strip():
+                return {
+                    "status": "error",
+                    "error": f"Nmap exited with code {result.returncode}: {result.stderr.strip() or 'no output'}",
+                }
+
             # Parse the XML output
             parsed_data = self._parse_nmap_xml(result.stdout)
-            return parsed_data
-            
+            # _parse_nmap_xml already returns {"error": ...} on XML failures —
+            # promote those to status=error for consistency.
+            if "error" in parsed_data:
+                return {"status": "error", "error": parsed_data["error"]}
+
+            return {"status": "success", **parsed_data}
+
         except FileNotFoundError:
-            return {"error": "Nmap executable not found on system PATH."}
+            return {"status": "error", "error": "Nmap executable not found on system PATH. Install nmap and ensure it is accessible."}
+        except subprocess.TimeoutExpired:
+            return {"status": "error", "error": "Nmap scan exceeded the 5-minute limit."}
         except Exception as e:
-            return {"error": str(e)}
+            return {"status": "error", "error": str(e)}
+
 
     def _parse_nmap_xml(self, xml_string: str) -> Dict[str, Any]:
         """Parses nmap -oX output into a structured dictionary."""

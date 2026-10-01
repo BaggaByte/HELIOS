@@ -11,10 +11,11 @@ export interface ReconService {
 export interface ReconHost {
   id: string;
   ip: string;
+  ipv6?: string;
   hostname?: string;
   os?: string;
-  status: string;
-  last_seen: string;
+  last_seen?: string;
+  created_at?: string;
   services: ReconService[];
   _enriched?: {
     attack_surface: {
@@ -35,27 +36,41 @@ export interface PluginExecuteResponse {
   result: any;
 }
 
+export interface NmapIngestResponse {
+  status: string;
+  project_id: string;
+  project_name: string;
+  hosts_created: number;
+  hosts_updated: number;
+  services_created: number;
+  services_updated: number;
+  total_hosts_in_file: number;
+  message: string;
+}
+
 export const reconService = {
   /**
    * Fetches all known hosts from the database.
-   * Assuming the API endpoint is GET /api/v1/recon/hosts (Needs to be added to backend)
+   * Fetches persisted hosts for the selected project.
    */
   async getHosts(projectId: string): Promise<ReconHost[]> {
     const url = `/projects/${projectId}/recon/hosts`;
-    const response = await apiClient.get<any>(url);
-    const hosts = response.hosts || response || [];
-    if (hosts.length === 0) {
-      throw new Error("Database is empty, fallback to mock data");
-    }
-    return hosts;
+    const response = await apiClient.get<{ hosts: ReconHost[] }>(url);
+    return response.hosts;
+  },
+
+  async ingestNmapXml(projectId: string, file: File): Promise<NmapIngestResponse> {
+    const formData = new FormData();
+    formData.append('file', file);
+    return await apiClient.post<NmapIngestResponse>(`/projects/${projectId}/recon/ingest/nmap`, formData);
   },
 
   /**
    * Triggers a plugin execution dynamically.
    */
-  async triggerPlugin(projectId: string, pluginName: string, payload: any): Promise<PluginExecuteResponse> {
-    return await apiClient.post<PluginExecuteResponse>(`/projects/${projectId}/recon/plugins/${pluginName}`, {
-      payload
+  async triggerPlugin(projectId: string, pluginName: string, target: string): Promise<PluginExecuteResponse> {
+    return apiClient.post<PluginExecuteResponse>(`/projects/${projectId}/recon/plugins/${pluginName}`, {
+      payload: { target },
     });
   }
 };

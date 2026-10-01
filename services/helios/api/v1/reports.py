@@ -37,7 +37,7 @@ async def create_report(
         }
     except Exception as e:
         logger.error(f"Failed to generate report: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @router.get("/generate/download", response_class=PlainTextResponse, summary="Download report as plain text")
@@ -52,4 +52,4 @@ async def download_report(
         return PlainTextResponse(content=markdown_content, media_type="text/markdown")
     except Exception as e:
         logger.error(f"Failed to download report: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal server error")

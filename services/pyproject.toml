@@ -8,32 +8,39 @@ dependencies = [
     "aiofiles>=25.1.0",
     "aiosqlite>=0.22.1",
     "alembic>=1.18.5",
-    "bcrypt>=4.2.0",
+    "argon2-cffi>=25.1.0",
     "chromadb>=1.5.9",
-    "crewai>=0.193.2",
     "cryptography>=50.0.0",
     "fastapi>=0.141.1",
     "jsbeautifier>=2.0.3",
-    "langchain>=1.3.14",
     "lief>=1.0.0",
-    "litellm>=1.74.9",
+    "psutil>=7.0.0",
+    "pydantic-settings>=2.14.2",
+    "pyinstaller>=6.22.3",
+    "pyjwt>=2.15.1",
+    "python-multipart>=0.0.32",
+    "sqlalchemy[asyncio]>=2.0.51",
+    "uvicorn>=0.52.0",
+    "yara-python>=4.5.4",
+    "celery>=5.4.0",
+    "redis>=5.0.0",
+]
+
+[project.optional-dependencies]
+ai = [
     "openvino>=2026.2.1",
     "openvino-genai>=2026.2.1.0",
     "optimum[openvino]>=2.2.0",
-    "pydantic-settings>=2.14.2",
-    "python-multipart>=0.0.32",
-    "pyyaml>=6.0.3",
     "sentence-transformers>=5.6.1",
-    "sqlalchemy>=2.0.51",
     "transformers>=5.0.0",
-    "uvicorn>=0.52.0",
-    "yara-python>=4.5.4",
 ]
 
 [dependency-groups]
 dev = [
     "anyio>=4.14.2",
     "httpx>=0.28.1",
+    "mypy>=1.11.0",
     "pytest>=9.1.1",
     "pytest-asyncio>=1.4.0",
+    "ruff>=0.6.0",
 ]

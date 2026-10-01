@@ -25,13 +25,14 @@ jobs:
       - name: Set up Python
         run: uv python install 3.13
 
-      - name: Install dependencies
-        run: uv sync
+      - name: Install dependencies (including dev tools)
+        run: uv sync --group dev
 
       - name: Create .env for CI
         run: |
-          cp .env.example .env
-          # Override required fields for CI
+          # .env.example lives at the repo root, one level above services/
+          cp ../.env.example .env
+          # Override required fields for CI environment
           echo "SECRET_KEY=$(python -c 'import secrets; print(secrets.token_hex(32))')" >> .env
           echo "DEBUG=True" >> .env
           echo "DATABASE_URL=sqlite+aiosqlite:///./test_helios.db" >> .env
@@ -64,9 +65,13 @@ jobs:
         with:
           node-version: "20"
           cache: "npm"
-          cache-dependency-path: apps/web/package-lock.json
+          # Use the root package-lock.json for caching since the monorepo
+          # lockfile lives at the repo root, not inside apps/web.
+          cache-dependency-path: package-lock.json
 
       - name: Install dependencies
+        # Run from repo root so npm workspaces resolves correctly.
+        working-directory: .
         run: npm ci
 
       - name: Type check

@@ -1,10 +1,10 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Download, ShieldCheck, ShieldAlert, FileText } from 'lucide-react';
 import type { Evidence } from '../../hooks/useEvidence';
 import { useEvidence } from '../../hooks/useEvidence';
 import { cn } from '../../lib/utils';
 import { useProjectStore } from '../../stores/projectStore';
-import { API_BASE_URL } from '../../services/apiClient';
+import { apiClient } from '../../services/apiClient';
 
 interface Props {
   evidence: Evidence;
@@ -12,6 +12,7 @@ interface Props {
 
 export function EvidenceCard({ evidence }: Props) {
   const { verifyEvidence } = useEvidence();
+  const projectId = useProjectStore(state => state.activeProjectId);
   const [isVerifying, setIsVerifying] = useState(false);
   const [verificationResult, setVerificationResult] = useState<{valid: boolean; current?: string; expected?: string} | null>(null);
 
@@ -33,16 +34,47 @@ export function EvidenceCard({ evidence }: Props) {
   };
 
   const isImage = evidence.original_filename?.match(/\.(jpg|jpeg|png|gif|webp)$/i);
-  const projectId = useProjectStore(state => state.projectId);
-  const downloadUrl = `${API_BASE_URL}/projects/${projectId}/evidence/${evidence.id}/download`;
+  const [imageUrl, setImageUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (isImage && projectId) {
+      apiClient.getFile(`/projects/${projectId}/evidence/${evidence.id}/download`)
+        .then(blob => {
+          const url = URL.createObjectURL(blob);
+          setImageUrl(url);
+        })
+        .catch(err => console.error('Failed to load evidence image', err));
+    }
+    return () => {
+      if (imageUrl) URL.revokeObjectURL(imageUrl);
+    };
+  }, [isImage, projectId, evidence.id]);
+
+  const handleDownload = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    if (!projectId) return;
+    try {
+      const blob = await apiClient.getFile(`/projects/${projectId}/evidence/${evidence.id}/download`);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = evidence.original_filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('Download failed', err);
+    }
+  };
 
   return (
     <div className="bg-surface-secondary border border-border-default rounded-xl overflow-hidden shadow-sm flex flex-col group transition-all hover:border-border-active">
       {/* Preview Area */}
       <div className="h-48 bg-surface-tertiary border-b border-border-default relative flex items-center justify-center overflow-hidden">
-        {isImage ? (
+        {isImage && imageUrl ? (
           <img 
-            src={downloadUrl} 
+            src={imageUrl} 
             alt={evidence.original_filename} 
             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
           />
@@ -55,14 +87,13 @@ export function EvidenceCard({ evidence }: Props) {
         
         {/* Hover Actions */}
         <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-4">
-          <a 
-            href={downloadUrl}
-            download={evidence.original_filename}
+          <button 
+            onClick={handleDownload}
             className="p-2 bg-surface-secondary text-gray-200 rounded-full hover:bg-border-active hover:text-white transition-colors"
             title="Download Raw File"
           >
             <Download size={20} />
-          </a>
+          </button>
         </div>
       </div>
 
@@ -75,7 +106,7 @@ export function EvidenceCard({ evidence }: Props) {
             </h3>
             <p className="text-xs text-gray-400 mt-0.5">{new Date(evidence.created_at).toLocaleString()}</p>
           </div>
-          <span className="px-2 py-0.5 bg-surface-tertiary text-gray-300 text-[10px] font-bold uppercase rounded border border-border-default">
+          <span className="px-2 py-0.5 bg-surface-tertiary text-gray-300 text-xs font-bold uppercase rounded border border-border-default">
             {evidence.type}
           </span>
         </div>
@@ -109,13 +140,13 @@ export function EvidenceCard({ evidence }: Props) {
               {verificationResult.valid ? <ShieldCheck size={14} className="mt-0.5 shrink-0" /> : <ShieldAlert size={14} className="mt-0.5 shrink-0" />}
               <div>
                 <p className="font-bold">{verificationResult.valid ? 'Verified: Chain of Custody Intact' : 'TAMPERED: Hash Mismatch!'}</p>
-                <div className="mt-1 font-mono text-[10px] opacity-80 break-all">
+                <div className="mt-1 font-mono text-xs opacity-80 break-all">
                   DB: {evidence.file_hash}
                 </div>
               </div>
             </div>
           ) : (
-            <div className="font-mono text-[10px] text-gray-500 break-all bg-surface-primary p-2 rounded border border-border-default">
+            <div className="font-mono text-xs text-gray-500 break-all bg-surface-primary p-2 rounded border border-border-default">
               SHA256: {evidence.file_hash}
             </div>
           )}

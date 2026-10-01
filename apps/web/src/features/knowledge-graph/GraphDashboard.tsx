@@ -62,7 +62,7 @@ export function GraphDashboard() {
     <div className="flex flex-col h-full bg-surface-primary overflow-hidden relative">
       {/* Header Overlay */}
       <div className="absolute top-0 left-0 right-0 p-4 flex items-center justify-between z-10 pointer-events-none">
-        <div className="pointer-events-auto flex items-center gap-2 bg-surface-secondary/80 backdrop-blur-md p-3 rounded-lg border border-border-default shadow-lg">
+        <div className="pointer-events-auto flex items-center gap-2 bg-surface-secondary/80  p-3 rounded-lg border border-border-default shadow-lg">
           <Share2 className="text-border-active" size={20} />
           <div>
             <h1 className="text-lg font-bold text-gray-100 leading-tight">Knowledge Graph</h1>
@@ -71,7 +71,7 @@ export function GraphDashboard() {
         </div>
         
         {isLoading && (
-          <div className="pointer-events-auto bg-surface-secondary/80 backdrop-blur-md px-4 py-2 rounded-lg border border-border-default flex items-center gap-2 text-border-active shadow-lg">
+          <div className="pointer-events-auto bg-surface-secondary/80  px-4 py-2 rounded-lg border border-border-default flex items-center gap-2 text-border-active shadow-lg">
             <RefreshCw size={16} className="animate-spin" />
             <span className="text-sm font-semibold">Loading Graph...</span>
           </div>
@@ -101,7 +101,7 @@ export function GraphDashboard() {
             
             {/* Properties Panel (Right side) */}
             {selectedNode && (
-              <Panel position="top-right" className="!m-4 mt-20 pointer-events-auto w-80 bg-surface-secondary border border-border-default rounded-lg shadow-xl overflow-hidden animate-in fade-in slide-in-from-right-4">
+              <Panel position="top-right" className="!m-4 mt-20 pointer-events-auto w-80 bg-surface-secondary border border-border-default rounded-lg shadow-md overflow-hidden animate-in fade-in slide-in-from-right-4">
                 <div className="p-3 border-b border-border-default bg-surface-tertiary flex items-center gap-2">
                   <Layers size={16} className="text-border-active" />
                   <h3 className="font-bold text-gray-100 text-sm">Entity Details</h3>

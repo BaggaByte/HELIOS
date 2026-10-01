@@ -19,8 +19,8 @@ class Project(Base, TimestampMixin):
     status: Mapped[str] = mapped_column(String(20), default="active")
     encryption_key_id: Mapped[Optional[str]] = mapped_column(String(100))
 
-    created_by: Mapped[Optional[str]] = mapped_column(
-        String(36), ForeignKey("users.id"), nullable=True
+    created_by: Mapped[str] = mapped_column(
+        String(36), ForeignKey("users.id"), nullable=False
     )
 
     # Relationships
@@ -32,5 +32,8 @@ class Project(Base, TimestampMixin):
         back_populates="project", cascade="all, delete-orphan"
     )
     findings: Mapped[List["Finding"]] = relationship(
+        back_populates="project", cascade="all, delete-orphan"
+    )
+    files: Mapped[List["ProjectFile"]] = relationship(
         back_populates="project", cascade="all, delete-orphan"
     )

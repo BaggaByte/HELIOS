@@ -19,7 +19,7 @@ def _xml_file(filename: str):
 async def _make_project(client, name: str = "Recon Test") -> str:
     r = await client.post(
         "/api/v1/projects",
-        json={"name": name, "scope": "10.0.0.0/8"},
+        json={"name": name, "scope": "10.0.0.0/8, 192.168.0.0/16"},
     )
     assert r.status_code == 201
     return r.json()["id"]

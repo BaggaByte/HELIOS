@@ -71,7 +71,7 @@ async def ingest_logs(
     except Exception as e:
         logger.error(f"Failed to save log events: {e}")
         await db.rollback()
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @router.get("/timeline", summary="Retrieve log events in chronological order")

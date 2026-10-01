@@ -13,44 +13,114 @@ jobs:
         include:
           - platform: 'macos-latest'
             args: '--target aarch64-apple-darwin'
-          - platform: 'macos-latest'
+            rust_target: 'aarch64-apple-darwin'
+          - platform: 'macos-13'
             args: '--target x86_64-apple-darwin'
+            rust_target: 'x86_64-apple-darwin'
           - platform: 'ubuntu-22.04'
             args: ''
+            rust_target: ''
           - platform: 'windows-latest'
             args: ''
+            rust_target: ''
 
     runs-on: ${{ matrix.platform }}
     steps:
       - uses: actions/checkout@v4
 
+      # ── Node.js setup ─────────────────────────────────────────
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: 'npm'
-          cache-dependency-path: apps/web/package-lock.json
+          # Root-level lockfile (monorepo)
+          cache-dependency-path: package-lock.json
 
+      # ── Python + uv setup (for PyInstaller sidecar) ──────────
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          version: "latest"
+
+      - name: Set up Python 3.13
+        run: uv python install 3.13
+        working-directory: services
+
+      # ── Install Python dependencies ───────────────────────────
+      # OpenVINO wheels are large; we install without them on CI since
+      # the sidecar only needs the FastAPI server to start — inference
+      # falls back to mock mode when model files are absent.
+      - name: Install Python dependencies
+        working-directory: services
+        run: |
+          uv sync
+          uv pip install pyinstaller
+
+      # ── macOS: install cross-compilation target ───────────────
+      - name: Install macOS cross-compile target
+        if: matrix.platform == 'macos-latest'
+        run: rustup target add ${{ matrix.rust_target }}
+
+      # ── Ubuntu: install system libs ───────────────────────────
+      - name: Install Ubuntu system dependencies
+        if: matrix.platform == 'ubuntu-22.04'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libgtk-3-dev libwebkit2gtk-4.1-dev \
+            libappindicator3-dev librsvg2-dev patchelf
+
+      # ── Build the backend sidecar via PyInstaller ────────────
+      - name: Build Python backend sidecar
+        working-directory: services
+        run: |
+          # Derive the sidecar binary name for this matrix leg so we can
+          # verify the right file was produced afterward.
+          TARGET="${{ matrix.rust_target }}"
+          if [ -z "$TARGET" ]; then
+            # ubuntu-latest matrix leg has no rust_target — auto-detect
+            TARGET="x86_64-unknown-linux-gnu"
+          fi
+          uv run python build_backend.py --target "$TARGET"
+        shell: bash
+
+      # ── Verify the correctly-named sidecar was produced ──────
+      - name: Verify sidecar exists and is correct target
+        shell: bash
+        run: |
+          TARGET="${{ matrix.rust_target }}"
+          if [ -z "$TARGET" ]; then TARGET="x86_64-unknown-linux-gnu"; fi
+
+          EXT=""
+          if [[ "$TARGET" == *windows* ]]; then EXT=".exe"; fi
+          EXPECTED="apps/desktop/bin/helios_backend-${TARGET}${EXT}"
+
+          echo "Expecting sidecar at: $EXPECTED"
+          ls -la apps/desktop/bin/ || true
+
+          if [ ! -f "$EXPECTED" ]; then
+            echo "ERROR: Expected sidecar '$EXPECTED' was not produced. Build aborted."
+            exit 1
+          fi
+          echo "Sidecar verified: $EXPECTED ✓"
+
+      # ── Rust setup ────────────────────────────────────────────
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
         with:
-          targets: ${{ matrix.platform == 'macos-latest' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
+          targets: ${{ matrix.rust_target }}
 
       - name: Rust Cache
         uses: Swatinem/rust-cache@v2
         with:
           workspaces: apps/desktop
 
-      - name: Install dependencies (Ubuntu only)
-        if: matrix.platform == 'ubuntu-22.04'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
-
+      # ── Frontend dependencies ────────────────────────────────
       - name: Install frontend dependencies
-        working-directory: apps/web
         run: npm ci
 
+      # ── Tauri release build ──────────────────────────────────
       - name: Build Tauri app
         uses: tauri-apps/tauri-action@v0
         env:
@@ -59,7 +129,21 @@ jobs:
           projectPath: apps/desktop
           tagName: ${{ github.ref_name }}
           releaseName: "HELIOS Offensive Copilot ${{ github.ref_name }}"
-          releaseBody: "Automated release via GitHub Actions."
+          releaseBody: |
+            ## HELIOS ${{ github.ref_name }}
+
+            ### What's included
+            - HELIOS desktop application (Tauri + React)
+            - Bundled Python backend sidecar (FastAPI + OpenVINO runtime)
+            - Local AI inference (CPU/NPU) via Phi-4 Mini INT4
+
+            ### First-time setup
+            1. Download and install the package for your platform.
+            2. On first launch HELIOS will start in **mock AI mode** (no model file).
+            3. To enable full AI: open the Settings Dashboard and run the provided `download_model` terminal command for your OS.
+
+            ### Tool integrations
+            Nmap must be installed separately to scan targets. Other bundled scanner wrappers are disabled for the first release while scope enforcement and graph persistence logic is built.
           releaseDraft: true
           prerelease: false
           args: ${{ matrix.args }}

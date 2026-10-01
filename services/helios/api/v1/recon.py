@@ -1,4 +1,4 @@
-from fastapi import APIRouter, UploadFile, File, HTTPException, Depends, Query, status, Path, BackgroundTasks
+from fastapi import APIRouter, UploadFile, File, HTTPException, Depends, Query, status, Path
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, delete, and_, func
 from sqlalchemy.orm import selectinload
@@ -7,6 +7,8 @@ from typing import List, Optional, Dict, Any
 from datetime import datetime
 import logging
 import uuid
+import re
+import asyncio
 
 from helios.infrastructure.database import get_db_session
 from helios.models.project import Project
@@ -14,6 +16,7 @@ from helios.models.host import Host
 from helios.models.service import Service
 from helios.core.recon.parsers.nmap import parse_nmap_xml
 from helios.core.knowledge_graph.builder import sync_host_with_services
+from helios.utils.validators import is_target_in_scope
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -177,6 +180,16 @@ async def ingest_nmap(
         logger.exception("Unexpected error parsing Nmap XML")
         raise HTTPException(status_code=500, detail="Failed to parse Nmap XML")
 
+    project = await get_project_or_404(project_id, db)
+    scope_entries = [entry.strip() for entry in re.split(r"[,;\n]+", project.scope or "") if entry.strip()]
+    exclusions = [entry.strip() for entry in re.split(r"[,;\n]+", project.out_of_scope or "") if entry.strip()]
+    out_of_scope_hosts = [host.get("ip") for host in hosts_data if host.get("ip") and (
+        not scope_entries or "*" in scope_entries or not is_target_in_scope(host["ip"], scope_entries)
+        or any(is_target_in_scope(host["ip"], [entry]) for entry in exclusions)
+    )]
+    if out_of_scope_hosts:
+        raise HTTPException(status_code=403, detail=f"Nmap report contains hosts outside this project's authorized scope: {', '.join(out_of_scope_hosts[:10])}")
+
     if not hosts_data:
         return IngestSummary(
             project_id=str(project_id),
@@ -187,7 +200,6 @@ async def ingest_nmap(
             message="No live hosts with open ports found in the scan",
         )
 
-    project = await get_project_or_404(project_id, db)
     hosts_created = hosts_updated = services_created = services_updated = 0
 
     affected_host_ids: set[str] = set()
@@ -356,7 +368,7 @@ async def ingest_nmap(
     except Exception as e:
         await db.rollback()
         logger.exception("Failed to ingest Nmap data")
-        raise HTTPException(status_code=500, detail=f"Database error during ingest: {str(e)}")
+        raise HTTPException(status_code=500, detail="Database error during ingest")
 
 
 @router.get("/hosts", response_model=HostListResponse, summary="List hosts with filtering & pagination")
@@ -442,119 +454,188 @@ async def delete_host(
     return None
 
 
-@router.post("/plugins/{plugin_name}", summary="Execute a recon plugin in the background")
-def execute_recon_plugin(
+# ── Plugin routing constants ──────────────────────────────────────────────────
+
+# Host-discovery plugins: output is persisted to Host/Service DB tables.
+_HOST_DISCOVERY_PLUGINS = {"nmap"}
+
+# Recon plugins: output returned as structured JSON only.
+# (Disabled for first release until persistence and scope logic is implemented for each).
+_RECON_PLUGINS = set()
+
+_ALL_SUPPORTED_PLUGINS = _HOST_DISCOVERY_PLUGINS | _RECON_PLUGINS
+
+
+@router.get("/plugins", summary="List all available recon plugins")
+async def list_recon_plugins():
+    """Returns all registered plugins and whether their binary is reachable."""
+    from helios.infrastructure.plugin_registry import plugin_registry
+    import shutil
+    plugin_registry.load_all()
+    plugins_out = []
+    for name in sorted(_ALL_SUPPORTED_PLUGINS):
+        plugin = plugin_registry.get_plugin(name)
+        if plugin:
+            plugins_out.append({
+                "name": plugin.name,
+                "version": plugin.version,
+                "description": plugin.description,
+                "available": shutil.which(plugin.name) is not None,
+                "category": "host_discovery" if name in _HOST_DISCOVERY_PLUGINS else "recon",
+            })
+    return {"plugins": plugins_out}
+
+
+@router.post("/plugins/{plugin_name}", summary="Execute a recon plugin against an in-scope target")
+async def execute_recon_plugin(
     project_id: str = Path(...),
     plugin_name: str = Path(...),
     request: PluginExecuteRequest = ...,
-    background_tasks: BackgroundTasks = ...,
+    db: AsyncSession = Depends(get_db_session),
 ):
     from helios.infrastructure.plugin_registry import plugin_registry
 
+    project = await get_project_or_404(project_id, db)
+    plugin_name_lower = plugin_name.lower()
+
+    if plugin_name_lower not in _ALL_SUPPORTED_PLUGINS:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=(
+                f"Unknown plugin '{plugin_name}'. "
+                f"Supported: {sorted(_ALL_SUPPORTED_PLUGINS)}"
+            ),
+        )
+
+    target = str(request.payload.get("target", "")).strip()
+    if not target or any(char in target for char in "\r\n\x00"):
+        raise HTTPException(status_code=400, detail="Provide one IP address or domain as the scan target.")
+
+    # Scanning is permitted only when both the submitted target and project
+    # scope are explicit. A target may be a single host, never a free-form flag.
+    scope_entries = [entry.strip() for entry in re.split(r"[,;\n]+", project.scope or "") if entry.strip()]
+    if not scope_entries or "*" in scope_entries or not is_target_in_scope(target, scope_entries):
+        raise HTTPException(status_code=403, detail="Target is not within this project's authorized scope.")
+    if any(is_target_in_scope(target, [entry]) for entry in re.split(r"[,;\n]+", project.out_of_scope or "") if entry.strip()):
+        raise HTTPException(status_code=403, detail="Target is explicitly excluded by this project's scope.")
+
     plugin_registry.load_all()
-    plugin = plugin_registry.get_plugin(plugin_name)
+    plugin = plugin_registry.get_plugin(plugin_name_lower)
     if not plugin:
-        raise HTTPException(status_code=404, detail=f"Plugin '{plugin_name}' not found")
-
-    async def run_and_persist():
-        try:
-            # We must create a new session for the background task
-            from helios.infrastructure.database import async_session_maker
-            from helios.models.finding import Finding
-            from helios.models.host import Host
-            from sqlalchemy.future import select
-            
-            result = plugin.execute(request.payload)
-            if "error" in result:
-                logger.error(f"Plugin {plugin_name} error: {result['error']}")
-                return
-
-            parsed_data = result.get("parsed_data", {})
-            
-            async with async_session_maker() as db:
-                if "findings" in parsed_data:
-                    for f_data in parsed_data["findings"]:
-                        finding = Finding(
-                            project_id=project_id,
-                            title=f_data.get("title", "Unknown"),
-                            description=f_data.get("description", ""),
-                            severity=f_data.get("severity", "INFO"),
-                            confidence=f_data.get("confidence", "HIGH"),
-                            cwe_id=f_data.get("cwe_id"),
-                            cvss_score=f_data.get("cvss_score"),
-                            cvss_vector=f_data.get("cvss_metrics"),
-                            remediation=f_data.get("remediation"),
-                            references_json=f_data.get("references", [])
-                        )
-                        db.add(finding)
-                
-                if "subdomains" in parsed_data:
-                    for s_data in parsed_data["subdomains"]:
-                        host_name = s_data.get("host")
-                        if host_name:
-                            # Create or update host
-                            h_res = await db.execute(select(Host).where(Host.project_id == project_id, Host.hostname == host_name))
-                            host = h_res.scalars().first()
-                            if not host:
-                                host = Host(project_id=project_id, ip=s_data.get("ip") or "", hostname=host_name, hostnames=[host_name])
-                                db.add(host)
-                
-                if "directories" in parsed_data:
-                    for d_data in parsed_data["directories"]:
-                        finding = Finding(
-                            project_id=project_id,
-                            title=f"Endpoint Discovered: {d_data.get('path')}",
-                            description=f"Status: {d_data.get('status', 'unknown')}",
-                            severity="INFO",
-                            confidence="HIGH"
-                        )
-                        db.add(finding)
-                        
-                if "hosts" in parsed_data:
-                    from helios.models.service import Service
-                    for h_data in parsed_data["hosts"]:
-                        ip = h_data.get("ip")
-                        if not ip:
-                            continue
-                        # Create or update host
-                        h_res = await db.execute(select(Host).where(Host.project_id == project_id, Host.ip == ip))
-                        host = h_res.scalars().first()
-                        if not host:
-                            host = Host(project_id=project_id, ip=ip)
-                            db.add(host)
-                            await db.flush() # Need host.id
-                            
-                        for p_data in h_data.get("ports", []):
-                            port = p_data.get("port")
-                            protocol = p_data.get("protocol", "tcp")
-                            s_res = await db.execute(select(Service).where(Service.host_id == host.id, Service.port == port, Service.protocol == protocol))
-                            service = s_res.scalars().first()
-                            if not service:
-                                service = Service(
-                                    host_id=host.id,
-                                    port=port,
-                                    protocol=protocol,
-                                    state=p_data.get("state", "open"),
-                                    service=p_data.get("service"),
-                                    product=p_data.get("product"),
-                                    banner=p_data.get("banner"),
-                                    extrainfo=p_data.get("extrainfo")
-                                )
-                                db.add(service)
-                        
-                await db.commit()
-                logger.info(f"Plugin {plugin_name} completed and persisted data.")
-                
-        except Exception as e:
-            logger.error(f"Background task for {plugin_name} failed: {e}")
+        raise HTTPException(status_code=404, detail=f"Plugin '{plugin_name}' not found in registry")
 
     try:
-        background_tasks.add_task(run_and_persist)
+        # Build execution payload.
+        # Nmap: locked-down args, no user-supplied flags.
+        # All other plugins: pass the full validated payload.
+        if plugin_name_lower == "nmap":
+            exec_payload = {"target": target, "args": "-sV --top-ports 100"}
+        else:
+            exec_payload = {**request.payload, "target": target}
+
+        result = await asyncio.to_thread(plugin.execute, exec_payload)
+
+        if result.get("status") == "error":
+            raise HTTPException(status_code=502, detail=result.get("error", "Plugin execution failed"))
+
+        # ── nmap: persist Host/Service rows to the database ──────────────────
+        if plugin_name_lower in _HOST_DISCOVERY_PLUGINS:
+            hosts_created = hosts_updated = services_created = services_updated = 0
+            affected_host_ids: set[str] = set()
+
+            for host_data in result.get("hosts", []):
+                ip = host_data.get("ip")
+                if not ip:
+                    continue
+                host_result = await db.execute(select(Host).where(Host.project_id == project.id, Host.ip == ip))
+                host = host_result.scalars().first()
+                if host is None:
+                    host = Host(
+                        project_id=project.id,
+                        ip=ip,
+                        hostname=host_data.get("hostname"),
+                        hostnames=[host_data["hostname"]] if host_data.get("hostname") else [],
+                    )
+                    db.add(host)
+                    hosts_created += 1
+                else:
+                    if host_data.get("hostname"):
+                        host.hostname = host_data["hostname"]
+                    hosts_updated += 1
+                await db.flush()
+                affected_host_ids.add(host.id)
+
+                for service_data in host_data.get("ports", []):
+                    port = service_data.get("port")
+                    protocol = service_data.get("protocol") or "tcp"
+                    if not port:
+                        continue
+                    svc_result = await db.execute(
+                        select(Service).where(
+                            Service.host_id == host.id,
+                            Service.port == port,
+                            Service.protocol == protocol,
+                        )
+                    )
+                    service = svc_result.scalars().first()
+                    values = {
+                        "name": service_data.get("service"),
+                        "product": service_data.get("product"),
+                        "version": service_data.get("version"),
+                        "extrainfo": service_data.get("extrainfo"),
+                        "state": "open",
+                    }
+                    if service is None:
+                        db.add(Service(host_id=host.id, port=port, protocol=protocol, **values))
+                        services_created += 1
+                    else:
+                        for key, value in values.items():
+                            if value is not None:
+                                setattr(service, key, value)
+                        services_updated += 1
+
+            await db.commit()
+
+            try:
+                if affected_host_ids:
+                    synced_hosts = (
+                        await db.execute(
+                            select(Host)
+                            .where(Host.id.in_(affected_host_ids))
+                            .options(selectinload(Host.services))
+                        )
+                    ).scalars().all()
+                    for host in synced_hosts:
+                        await sync_host_with_services(db, project.id, host)
+                    await db.commit()
+            except Exception:
+                logger.exception("Knowledge graph sync failed after scan (non-fatal)")
+                await db.rollback()
+
+            return {
+                "plugin": plugin_name,
+                "version": plugin.version,
+                "result": {
+                    "status": "completed",
+                    "hosts_found": len(result.get("hosts", [])),
+                    "hosts_created": hosts_created,
+                    "hosts_updated": hosts_updated,
+                    "services_created": services_created,
+                    "services_updated": services_updated,
+                },
+            }
+
+        # ── All other recon plugins: return structured JSON result directly ──
         return {
             "plugin": plugin_name,
             "version": plugin.version,
-            "result": {"status": "started", "message": "Scan started in background"},
+            "result": result,
         }
+
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.error(f"Plugin {plugin_name} failed to schedule: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        await db.rollback()
+        logger.error(f"Plugin {plugin_name} execution failed: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Internal server error during plugin execution")
+

@@ -3,7 +3,7 @@
  */
 
 // In production, this should be an environment variable.
-export const API_BASE_URL = 'http://localhost:8000/api/v1';
+export const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api/v1').replace(/\/+$/, '');
 
 export class ApiError extends Error {
   public status: number;
@@ -18,6 +18,13 @@ export class ApiError extends Error {
 }
 
 async function handleResponse<T>(response: Response): Promise<T> {
+  if (response.status === 401) {
+    // Centrally handle unauthorized access
+    localStorage.removeItem('helios_token');
+    window.dispatchEvent(new Event('auth-unauthorized'));
+    // Redirect to login could be handled by a listener or directly here
+  }
+
   if (!response.ok) {
     let errorData;
     try {
@@ -41,38 +48,82 @@ async function handleResponse<T>(response: Response): Promise<T> {
   return await response.json();
 }
 
+function getAuthHeaders(): HeadersInit {
+  const token = localStorage.getItem('helios_token');
+  if (token) {
+    return { 'Authorization': `Bearer ${token}` };
+  }
+  return {};
+}
+
 export const apiClient = {
   async get<T>(endpoint: string, headers?: HeadersInit): Promise<T> {
     const response = await fetch(`${API_BASE_URL}${endpoint}`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
+        ...getAuthHeaders(),
         ...headers,
       },
     });
     return handleResponse<T>(response);
   },
 
-  async post<T>(endpoint: string, data: any, headers?: HeadersInit): Promise<T> {
+  async getFile(endpoint: string, headers?: HeadersInit): Promise<Blob> {
     const response = await fetch(`${API_BASE_URL}${endpoint}`, {
-      method: 'POST',
+      method: 'GET',
       headers: {
-        'Content-Type': 'application/json',
+        ...getAuthHeaders(),
         ...headers,
       },
-      body: JSON.stringify(data),
+    });
+    
+    if (response.status === 401) {
+      localStorage.removeItem('helios_token');
+      window.dispatchEvent(new Event('auth-unauthorized'));
+    }
+    
+    if (!response.ok) {
+      throw new ApiError(response.status, response.statusText);
+    }
+    
+    return await response.blob();
+  },
+
+  async post<T>(endpoint: string, data: any, headers?: HeadersInit): Promise<T> {
+    const isFormData = data instanceof FormData;
+    const reqHeaders: Record<string, string> = {
+      ...getAuthHeaders() as Record<string, string>,
+      ...(headers as Record<string, string> || {}),
+    };
+    
+    if (!isFormData && !reqHeaders['Content-Type']) {
+      reqHeaders['Content-Type'] = 'application/json';
+    }
+
+    const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+      method: 'POST',
+      headers: reqHeaders,
+      body: isFormData ? data : JSON.stringify(data),
     });
     return handleResponse<T>(response);
   },
 
   async put<T>(endpoint: string, data: any, headers?: HeadersInit): Promise<T> {
+    const isFormData = data instanceof FormData;
+    const reqHeaders: Record<string, string> = {
+      ...getAuthHeaders() as Record<string, string>,
+      ...(headers as Record<string, string> || {}),
+    };
+    
+    if (!isFormData && !reqHeaders['Content-Type']) {
+      reqHeaders['Content-Type'] = 'application/json';
+    }
+
     const response = await fetch(`${API_BASE_URL}${endpoint}`, {
       method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-        ...headers,
-      },
-      body: JSON.stringify(data),
+      headers: reqHeaders,
+      body: isFormData ? data : JSON.stringify(data),
     });
     return handleResponse<T>(response);
   },
@@ -82,6 +133,7 @@ export const apiClient = {
       method: 'DELETE',
       headers: {
         'Content-Type': 'application/json',
+        ...getAuthHeaders(),
         ...headers,
       },
     });

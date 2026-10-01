@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, type FormEvent, type ChangeEvent } from 'react';
 import {
   Target,
   Search,
@@ -17,112 +17,80 @@ import { useReconStore } from '../../stores/reconStore';
 import type { ReconHost, ReconService } from '../../services/reconService';
 import { cn } from '../../lib/utils';
 import { useNavigate } from 'react-router-dom';
+import { useProjectStore } from '../../stores/projectStore';
 
-const DEFAULT_RECON_HOSTS: ReconHost[] = [
-  {
-    id: 'demo-h1',
-    ip: '192.168.1.15',
-    hostname: 'api.internal.helios.corp',
-    os: 'Linux (Ubuntu 22.04.3 LTS / Kernel 5.15.0-88-generic)',
-    status: 'up',
-    last_seen: '2026-08-24T00:00:00.000Z',
-    services: [
-      { port: 22, protocol: 'tcp', state: 'open', name: 'ssh', version: 'OpenSSH 8.9p1 Ubuntu 3ubuntu0.4' },
-      { port: 80, protocol: 'tcp', state: 'open', name: 'http', version: 'Apache httpd 2.4.49 (Vulnerable to CVE-2021-41773)' },
-      { port: 443, protocol: 'tcp', state: 'open', name: 'ssl/https', version: 'OpenSSL 3.0.2 / Apache 2.4.49' },
-      { port: 8080, protocol: 'tcp', state: 'open', name: 'http-proxy', version: 'Node.js Express / v18.17.1' }
-    ],
-    _enriched: {
-      risk: {
-        risk_score: 9.4,
-        severity: 'Critical'
-      },
-      attack_surface: {
-        exposed_high_value_ports: [22, 443],
-        potential_web_services: [80, 443, 8080],
-        outdated_services: ['Apache 2.4.49']
-      }
-    }
-  },
-  {
-    id: 'demo-h2',
-    ip: '192.168.1.10',
-    hostname: 'auth.helios.corp',
-    os: 'Linux (Debian 12 Bookworm)',
-    status: 'up',
-    last_seen: '2026-08-23T23:42:00.000Z',
-    services: [
-      { port: 22, protocol: 'tcp', state: 'open', name: 'ssh', version: 'OpenSSH 9.2p1 Debian 2+deb12u1' },
-      { port: 5432, protocol: 'tcp', state: 'open', name: 'postgresql', version: 'PostgreSQL DB 16.1' },
-      { port: 6379, protocol: 'tcp', state: 'open', name: 'redis', version: 'Redis server v=7.2.3 (No Auth Required)' }
-    ],
-    _enriched: {
-      risk: {
-        risk_score: 8.8,
-        severity: 'High'
-      },
-      attack_surface: {
-        exposed_high_value_ports: [22, 5432, 6379],
-        potential_web_services: [],
-        outdated_services: []
-      }
-    }
-  },
-  {
-    id: 'demo-h3',
-    ip: '192.168.1.50',
-    hostname: 'k8s-control.helios.cloud',
-    os: 'Linux (Flatcar Container Linux 3510.2.1)',
-    status: 'up',
-    last_seen: '2026-08-23T23:15:00.000Z',
-    services: [
-      { port: 6443, protocol: 'tcp', state: 'open', name: 'kube-apiserver', version: 'Kubernetes v1.28.2 REST API' },
-      { port: 2379, protocol: 'tcp', state: 'open', name: 'etcd', version: 'etcd 3.5.9-0' },
-      { port: 10250, protocol: 'tcp', state: 'open', name: 'kubelet', version: 'Kubernetes Kubelet API' }
-    ],
-    _enriched: {
-      risk: {
-        risk_score: 7.5,
-        severity: 'High'
-      },
-      attack_surface: {
-        exposed_high_value_ports: [6443, 2379],
-        potential_web_services: [],
-        outdated_services: []
-      }
-    }
-  }
-];
 
 export function ReconDashboard() {
   const navigate = useNavigate();
   const [scanTarget, setScanTarget] = useState('');
-  const [selectedTool, setSelectedTool] = useState('nmap');
+  const selectedTool = 'nmap';
   const [portFilter, setPortFilter] = useState<'all' | 'web' | 'database' | 'remote' | 'high-risk'>('all');
   const [selectedHost, setSelectedHost] = useState<ReconHost | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const modalRef = useRef<HTMLDivElement>(null);
+  const previousFocusRef = useRef<HTMLElement | null>(null);
 
-  const { hosts, isLoading, isScanning, error, fetchHosts, triggerScan } = useReconStore();
+  const { hosts, isLoading, isScanning, isImporting, error, lastMessage, fetchHosts, triggerScan, importNmapFile } = useReconStore();
+  const { activeProjectId } = useProjectStore();
 
   useEffect(() => {
-    fetchHosts('default-project-id');
-  }, [fetchHosts]);
+    if (selectedHost) {
+      previousFocusRef.current = document.activeElement as HTMLElement;
+      // Focus modal's first focusable element
+      setTimeout(() => {
+        if (modalRef.current) {
+          const focusable = modalRef.current.querySelectorAll<HTMLElement>('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
+          if (focusable.length > 0) focusable[0].focus();
+        }
+      }, 0);
+    } else {
+      if (previousFocusRef.current) {
+        previousFocusRef.current.focus();
+        previousFocusRef.current = null;
+      }
+    }
 
-  // Fallback demo hosts if backend is empty
-  const displayHosts: ReconHost[] = hosts.length > 0 ? hosts : DEFAULT_RECON_HOSTS;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (!selectedHost) return;
+      if (e.key === 'Tab') {
+        const modal = modalRef.current;
+        if (!modal) return;
+        const focusable = modal.querySelectorAll<HTMLElement>('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
+        if (focusable.length === 0) return;
+        const first = focusable[0];
+        const last = focusable[focusable.length - 1];
 
-  const handleScanSubmit = (e: React.FormEvent) => {
+        if (e.shiftKey && document.activeElement === first) {
+          e.preventDefault();
+          last.focus();
+        } else if (!e.shiftKey && document.activeElement === last) {
+          e.preventDefault();
+          first.focus();
+        }
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [selectedHost]);
+  useEffect(() => {
+    if (activeProjectId) void fetchHosts(activeProjectId);
+    else useReconStore.setState({ hosts: [], activeProjectId: null, error: null });
+  }, [activeProjectId, fetchHosts]);
+
+  const displayHosts: ReconHost[] = hosts;
+
+  const handleScanSubmit = (e: FormEvent) => {
     e.preventDefault();
     if (scanTarget.trim() && !isScanning) {
-      triggerScan(selectedTool, scanTarget.trim());
+      void triggerScan(selectedTool, scanTarget.trim());
       setScanTarget('');
     }
   };
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files?.[0]) {
-      triggerScan('nmap', e.target.files[0].name);
-    }
+  const handleFileUpload = (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) void importNmapFile(file);
+    e.target.value = '';
   };
 
   const getPortSeverityColor = (port: number, serviceName: string = '') => {
@@ -173,15 +141,17 @@ export function ReconDashboard() {
             type="file"
             ref={fileInputRef}
             className="hidden"
-            accept=".xml,.json,.gnmap,.txt"
+            accept=".xml"
             onChange={handleFileUpload}
+            disabled={!activeProjectId || isImporting}
           />
           <button
             onClick={() => fileInputRef.current?.click()}
+            disabled={!activeProjectId || isImporting}
             className="px-3 py-1.5 rounded-lg bg-surface-tertiary hover:bg-surface-hover border border-border-default text-xs font-semibold text-gray-200 transition-colors flex items-center gap-1.5"
           >
             <Upload size={14} className="text-border-active" />
-            <span>Import Nmap/Masscan</span>
+            <span>{isImporting ? 'Importing…' : 'Import Nmap XML'}</span>
           </button>
         </div>
       </div>
@@ -189,29 +159,12 @@ export function ReconDashboard() {
       {/* Control Bar: Multi-Tool Scanner */}
       <div className="p-4 border-b border-border-default bg-surface-secondary/40 flex flex-col lg:flex-row gap-3 items-center justify-between flex-shrink-0">
         <form onSubmit={handleScanSubmit} className="flex-1 w-full flex flex-col sm:flex-row gap-2 max-w-4xl">
-          <select 
-            value={selectedTool} 
-            onChange={e => setSelectedTool(e.target.value)}
-            disabled={isScanning}
+          <select
+            value={selectedTool}
+            disabled
             className="bg-surface-tertiary border border-border-default rounded-xl px-3 py-2 text-xs font-mono font-bold text-gray-200 focus:outline-none focus:border-border-active sm:w-44 shrink-0"
           >
-            <optgroup label="Port & Network Scanners">
-              <option value="nmap">Nmap (SYN Stealth)</option>
-              <option value="masscan">Masscan (High Speed)</option>
-              <option value="rustscan">Rustscan (Adaptive)</option>
-              <option value="naabu">Naabu (Fast SYN)</option>
-            </optgroup>
-            <optgroup label="Subdomains & OSINT">
-              <option value="subfinder">Subfinder OSINT</option>
-              <option value="amass">Amass Active/Passive</option>
-              <option value="dnsx">Dnsx Resolver</option>
-            </optgroup>
-            <optgroup label="Web & Technology">
-              <option value="httpx">Httpx Probe</option>
-              <option value="katana">Katana Crawler</option>
-              <option value="ffuf">FFuF Directory Fuzzer</option>
-              <option value="nuclei">Nuclei Vulnerability Scan</option>
-            </optgroup>
+            <option value="nmap">Nmap service scan</option>
           </select>
 
           <div className="relative flex-1">
@@ -220,13 +173,13 @@ export function ReconDashboard() {
               type="text"
               value={scanTarget}
               onChange={(e) => setScanTarget(e.target.value)}
-              placeholder="Target CIDR, IP or Domain (e.g., 192.168.1.0/24 or api.helios.corp)..."
+              placeholder="In-scope IP or domain (e.g., 192.168.1.10 or api.example.com)..."
               className="w-full bg-surface-tertiary border border-border-default rounded-xl py-2 pl-10 pr-32 text-xs text-gray-200 placeholder-gray-500 focus:outline-none focus:border-border-active"
               disabled={isScanning}
             />
             <button
               type="submit"
-              disabled={!scanTarget.trim() || isScanning}
+              disabled={!activeProjectId || !scanTarget.trim() || isScanning}
               className="absolute right-1.5 top-1.5 bottom-1.5 px-3 rounded-lg bg-border-active text-white font-semibold text-xs flex items-center gap-1.5 hover:bg-opacity-90 disabled:opacity-50 transition-all"
             >
               {isScanning ? <Activity size={14} className="animate-spin" /> : <Terminal size={14} />}
@@ -267,6 +220,9 @@ export function ReconDashboard() {
           <span>Error: {error}</span>
         </div>
       )}
+      {lastMessage && (
+        <div className="mx-4 mt-4 p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-xs text-emerald-300">{lastMessage}</div>
+      )}
 
       {/* Main Grid: Discovered Infrastructure */}
       <div className="flex-1 overflow-y-auto p-4 custom-scrollbar">
@@ -274,18 +230,23 @@ export function ReconDashboard() {
           <div className="flex items-center justify-center h-64 text-border-active">
             <Activity size={36} className="animate-spin" />
           </div>
+        ) : !activeProjectId ? (
+          <div className="flex flex-col items-center justify-center h-64 text-gray-400 space-y-2">
+            <Target size={40} className="opacity-50" />
+            <p className="text-sm">Create or select a project to view its reconnaissance data.</p>
+          </div>
         ) : filteredHosts.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-64 text-gray-500 space-y-2">
             <Server size={48} className="opacity-40" />
-            <p className="text-sm">No hosts matching the selected filter.</p>
+            <p className="text-sm">No hosts recorded for this project yet.</p>
+            <p className="text-xs">Run an in-scope Nmap service scan or import an Nmap XML file.</p>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
             {filteredHosts.map(host => (
               <div
                 key={host.id}
-                onClick={() => setSelectedHost(host)}
-                className="p-4 rounded-2xl bg-surface-secondary border border-border-default hover:border-border-active/60 transition-all cursor-pointer group hover:shadow-lg flex flex-col justify-between"
+                className="w-full text-left p-4 rounded-2xl bg-surface-secondary border border-border-default hover:border-border-active/60 transition-all group hover:shadow-lg flex flex-col justify-between"
               >
                 <div>
                   {/* Host IP & Status Pill */}
@@ -302,7 +263,7 @@ export function ReconDashboard() {
                       </div>
                     </div>
 
-                    <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 flex items-center gap-1 shrink-0">
+                    <span className="px-2 py-0.5 rounded-full text-xs font-mono font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 flex items-center gap-1 shrink-0">
                       <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
                       UP
                     </span>
@@ -313,7 +274,7 @@ export function ReconDashboard() {
                     <div className="mb-3 flex items-center justify-between bg-surface-tertiary/70 p-2 rounded-xl border border-border-default text-xs">
                       <span className="text-gray-400 font-medium">Risk Score</span>
                       <span className={cn(
-                        "px-2 py-0.5 rounded text-[11px] font-bold border",
+                        "px-2 py-0.5 rounded text-xs font-bold border",
                         host._enriched.risk.severity === 'Critical' ? 'bg-severity-critical/20 text-severity-critical border-severity-critical/40' :
                         host._enriched.risk.severity === 'High' ? 'bg-severity-high/20 text-severity-high border-severity-high/40' :
                         'bg-severity-info/20 text-severity-info border-severity-info/40'
@@ -331,7 +292,7 @@ export function ReconDashboard() {
 
                   {/* Port Matrix Tags */}
                   <div className="space-y-1.5 mb-3">
-                    <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block">
+                    <span className="text-xs font-bold text-gray-500 uppercase tracking-wider block">
                       Exposed Services ({host.services.length})
                     </span>
                     <div className="flex flex-wrap gap-1.5">
@@ -351,12 +312,15 @@ export function ReconDashboard() {
                 </div>
 
                 {/* Footer Action */}
-                <div className="pt-3 border-t border-border-default/60 flex items-center justify-between text-xs text-gray-400">
-                  <span className="font-mono text-[10px]">Seen {new Date(host.last_seen).toLocaleTimeString()}</span>
-                  <div className="text-border-active group-hover:underline flex items-center gap-1 font-semibold">
+                <div className="pt-3 border-t border-border-default/60 flex items-center justify-between text-xs text-gray-400 mt-2">
+                  <span className="font-mono text-xs">{host.last_seen ? `Seen ${new Date(host.last_seen).toLocaleString()}` : 'Recorded host'}</span>
+                  <button 
+                    onClick={() => setSelectedHost(host)}
+                    className="text-border-active hover:underline flex items-center gap-1 font-semibold focus:outline-none focus:ring-2 focus:ring-border-active focus:ring-offset-2 focus:ring-offset-surface-primary rounded px-2 py-1"
+                  >
                     <span>Inspect Target</span>
                     <ChevronRight size={14} className="group-hover:translate-x-0.5 transition-transform" />
-                  </div>
+                  </button>
                 </div>
               </div>
             ))}
@@ -367,11 +331,16 @@ export function ReconDashboard() {
       {/* Target Deep Dive Modal / Drawer */}
       {selectedHost && (
         <div 
-          className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4"
+          className="fixed inset-0 z-50 bg-black/60  flex items-center justify-center p-4"
           onClick={() => setSelectedHost(null)}
+          role="dialog"
+          aria-modal="true"
+          aria-label="Host Details"
+          ref={modalRef}
+          onKeyDown={(e) => { if (e.key === 'Escape') setSelectedHost(null); }}
         >
           <div 
-            className="w-full max-w-2xl bg-surface-secondary border border-border-default rounded-2xl shadow-2xl p-6 overflow-hidden flex flex-col max-h-[85vh] space-y-5 animate-in zoom-in-95 duration-150"
+            className="w-full max-w-2xl bg-surface-secondary border border-border-default rounded-2xl shadow-lg p-6 overflow-hidden flex flex-col max-h-[85vh] space-y-5 animate-in zoom-in-95 duration-150"
             onClick={e => e.stopPropagation()}
           >
             {/* Modal Header */}
@@ -419,7 +388,7 @@ export function ReconDashboard() {
                         </span>
                         <span className="font-mono text-emerald-400 font-bold uppercase">{svc.state}</span>
                       </div>
-                      <p className="font-mono text-gray-300 text-[11px] mt-1 break-all">
+                      <p className="font-mono text-gray-300 text-xs mt-1 break-all">
                         {svc.version || 'Version banner withheld'}
                       </p>
                     </div>

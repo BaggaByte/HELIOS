@@ -1,52 +1,98 @@
+"""
+Subfinder plugin — passive subdomain enumeration.
+
+Subfinder outputs one JSON object per line with fields:
+  host, source, ip (optional), input.
+
+Reference: https://docs.projectdiscovery.io/tools/subfinder/running
+"""
+
+from __future__ import annotations
+
 import logging
-from typing import Dict, Any
-from helios.plugins.base import BasePlugin
-from helios.core.recon.parsers.subfinder import parse_subfinder
+from typing import Any, Dict, List
+
+from helios.plugins.base import BasePlugin, PluginError
 
 logger = logging.getLogger(__name__)
 
+
 class SubfinderPlugin(BasePlugin):
     """
-    Subfinder wrapper plugin to execute real Subdomain Enumeration.
+    Wrapper for Subfinder (https://github.com/projectdiscovery/subfinder).
+    Enumerates subdomains passively and returns a structured list.
     """
 
     @property
     def name(self) -> str:
         return "subfinder"
-        
+
     @property
     def version(self) -> str:
         return "1.0.0"
-        
+
     @property
     def description(self) -> str:
-        return "Executes Subfinder for Subdomain Enumeration."
-        
+        return "Executes Subfinder for passive subdomain enumeration."
+
+    # ------------------------------------------------------------------
+
     def execute(self, payload: Dict[str, Any]) -> Dict[str, Any]:
-        target = payload.get("target")
+        target: str = payload.get("target", "").strip()
         if not target:
-            raise ValueError("Target is required for Subfinder scan.")
-            
-        args = payload.get("args", "")
-        
-        # Build command: Use -json for easy parsing
-        command = ["subfinder", "-d", target, "-json", "-silent"] + args.split()
-        
-        logger.info(f"Executing real Subfinder scan on target: {target}")
-        
-        result = self.run_command(command, timeout=300)
-        
-        if "error" in result:
-            return result
-            
-        # Parse the JSONL output
-        parsed_data = parse_subfinder(result.get("stdout", ""))
-        
+            raise ValueError("'target' domain is required for Subfinder.")
+
+        if not self.is_available("subfinder"):
+            return self._not_available_error()
+
+        timeout: int = int(payload.get("timeout", 300))
+
+        cmd = [
+            "subfinder",
+            "-d", target,
+            "-oJ",          # JSON-lines output
+            "-silent",
+            "-all",         # use all sources (respects ~/.config/subfinder/config.yaml)
+        ]
+
+        logger.info(f"[subfinder] Enumerating subdomains for {target!r}")
+
+        try:
+            returncode, stdout, stderr = self.run_subprocess(cmd, timeout=timeout)
+        except PluginError as exc:
+            return self._plugin_error(exc)
+
+        if returncode != 0:
+            logger.warning(f"[subfinder] Exited with code {returncode}: {stderr[:500]}")
+
+        subdomains = self._parse_output(stdout)
+
         return {
             "status": "success",
-            "message": f"Subfinder scan completed on {target}.",
-            "findings_count": len(parsed_data.get("subdomains", [])),
+            "plugin": self.name,
+            "version": self.version,
             "target": target,
-            "parsed_data": parsed_data,
-            "raw_output": result.get("stdout", "")
+            "findings_count": len(subdomains),
+            "subdomains": subdomains,
         }
+
+    # ------------------------------------------------------------------
+
+    def _parse_output(self, stdout: str) -> List[Dict[str, Any]]:
+        results: List[Dict[str, Any]] = []
+        for record in self.parse_jsonlines(stdout):
+            host = record.get("host") or record.get("input", "")
+            if host:
+                results.append({
+                    "host": host,
+                    "source": record.get("source", ""),
+                    "ip": record.get("ip", ""),
+                })
+        # Deduplicate by host
+        seen = set()
+        deduped = []
+        for r in results:
+            if r["host"] not in seen:
+                seen.add(r["host"])
+                deduped.append(r)
+        return deduped

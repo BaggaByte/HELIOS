@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-    Downloads and converts the Phi-3-mini-4k model to OpenVINO INT4 format,
+    Downloads and converts the Phi-4-mini model to OpenVINO INT4 format,
     or verifies the existing model if it's already present.
 
 .DESCRIPTION
@@ -10,12 +10,16 @@
     Required GPU/NPU VRAM for conversion: ~4 GB
     Output size (INT4): ~2.1 GB
 
+    The default output path matches config.py's OV_MODEL_PATH so the backend
+    finds the model automatically without any manual configuration.
+
 .PARAMETER ModelId
-    HuggingFace model ID. Defaults to microsoft/Phi-3-mini-4k-instruct.
+    HuggingFace model ID. Defaults to microsoft/Phi-4-mini-instruct.
 
 .PARAMETER OutputDir
-    Where to save the converted model. Defaults to ../models/phi-4-mini-openvino
-    (relative to this script's location, i.e. the repo root models/ folder).
+    Where to save the converted model.
+    Defaults to %APPDATA%\com.baggabyte.helios\models\phi4_mini_int4_ov
+    (matching the installed-app app-data path in config.py).
 
 .PARAMETER Device
     OpenVINO device to verify with. Defaults to CPU (always available).
@@ -23,22 +27,31 @@
 .EXAMPLE
     .\scripts\download_model.ps1
     .\scripts\download_model.ps1 -Device NPU
+    .\scripts\download_model.ps1 -OutputDir "D:\my_models\helios"
 #>
 
 param(
-    [string]$ModelId   = "microsoft/Phi-3-mini-4k-instruct",
-    [string]$OutputDir = "$PSScriptRoot\..\models\phi-4-mini-openvino",
-    [string]$Device    = "CPU"
+    [string]$ModelId   = "microsoft/Phi-4-mini-instruct",
+    [string]$Device    = "CPU",
+    # Default output directory matches config.py get_app_data_dir() / OV_MODEL_PATH:
+    #   Installed : %APPDATA%\com.baggabyte.helios\models\phi4_mini_int4_ov
+    #   Dev server: <cwd>\data\models\phi4_mini_int4_ov
+    [string]$OutputDir = ""
 )
 
 $ErrorActionPreference = "Stop"
 
-$resolved = Resolve-Path -LiteralPath $OutputDir -ErrorAction SilentlyContinue
-if ($resolved) {
-    $OutputDir = $resolved.Path
-} else {
-    $OutputDir = "$PSScriptRoot\..\models\phi-4-mini-openvino"
+# ── Resolve output path to match config.py's get_app_data_dir() ─────────────
+if (-not $OutputDir) {
+    $appData = $env:APPDATA
+    if ($appData) {
+        $OutputDir = Join-Path $appData "com.baggabyte.helios\models\phi4_mini_int4_ov"
+    } else {
+        # Dev fallback: services/data/models/ relative to this script
+        $OutputDir = Join-Path $PSScriptRoot "..\services\data\models\phi4_mini_int4_ov"
+    }
 }
+$OutputDir = [System.IO.Path]::GetFullPath($OutputDir)
 
 Write-Host ""
 Write-Host "================================================" -ForegroundColor Cyan
@@ -87,7 +100,7 @@ if (Test-ModelValid -Dir $OutputDir) {
         --task text-generation-with-past `
         --weight-format int4 `
         --sym `
-        --group-size 64 `
+        --group-size -1 `
         --ratio 1.0 `
         --trust-remote-code `
         $OutputDir
@@ -112,7 +125,7 @@ from pathlib import Path
 try:
     import openvino_genai as ov_genai
 except ImportError:
-    print("WARN: openvino_genai not installed - skipping runtime verification.")
+    print("WARN: openvino_genai not installed — skipping runtime verification.")
     print("      Install with:  uv add openvino-genai")
     sys.exit(0)
 
@@ -141,7 +154,10 @@ if ($LASTEXITCODE -ne 0) {
 
 Write-Host ""
 Write-Host "================================================" -ForegroundColor Green
-Write-Host " Model is ready. Start the backend with:" -ForegroundColor Green
+Write-Host " Model is ready at:" -ForegroundColor Green
+Write-Host "   $OutputDir" -ForegroundColor White
+Write-Host ""
+Write-Host " Start the backend with:" -ForegroundColor Green
 Write-Host "   cd services" -ForegroundColor White
 Write-Host "   uv run uvicorn helios.main:app --reload" -ForegroundColor White
 Write-Host "================================================" -ForegroundColor Green

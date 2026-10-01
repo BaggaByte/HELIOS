@@ -1,28 +1,21 @@
 from fastapi import APIRouter, Depends, UploadFile, File, Form, HTTPException, Path
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, Response
+from helios.infrastructure.encryption import EncryptionManager
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 import uuid
 import logging
 import os
-import asyncio
 
 from helios.infrastructure.database import get_db_session
 from helios.core.evidence.manager import save_evidence_file
 from helios.core.evidence.validator import verify_evidence
-from helios.core.evidence.chain_of_custody import ChainOfCustody
 from helios.models.evidence import Evidence
 from helios.models.finding import Finding
 from helios.models.project import Project
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
-
-# One ledger, alongside the evidence files themselves (see
-# core/evidence/manager.py's EVIDENCE_DIR convention). ChainOfCustody does
-# blocking file I/O, so every call below runs through asyncio.to_thread to
-# avoid stalling the event loop.
-_custody = ChainOfCustody(ledger_path=".helios_storage/evidence_ledger.jsonl")
 
 
 async def get_project_or_404(project_id: str, db: AsyncSession) -> Project:
@@ -52,17 +45,6 @@ async def get_or_create_stub_finding(project_id: uuid.UUID, db: AsyncSession) ->
     return finding.id
 
 
-@router.get("/custody/verify-ledger", summary="Verify the integrity of the evidence chain-of-custody ledger")
-async def verify_custody_ledger():
-    """
-    Checks the hash chain of the append-only custody ledger (upload / verify /
-    delete actions across all evidence). True means no entry has been altered
-    or removed since it was written.
-    """
-    is_valid = await asyncio.to_thread(_custody.verify_ledger)
-    return {"status": "success", "data": {"ledger_intact": is_valid}}
-
-
 @router.post("/upload", summary="Upload an evidence file")
 async def upload_evidence(
     project_id: str = Path(...),
@@ -86,7 +68,7 @@ async def upload_evidence(
         else:
             fid = await get_or_create_stub_finding(project_id, db)
 
-        saved_info = await asyncio.to_thread(save_evidence_file, file)
+        saved_info = await save_evidence_file(file)
 
         evidence = Evidence(
             finding_id=fid,
@@ -100,16 +82,23 @@ async def upload_evidence(
         await db.commit()
         await db.refresh(evidence)
 
-        await asyncio.to_thread(
-            _custody.log_evidence,
-            str(evidence.id),
-            "UPLOAD",
-            {
-                "finding_id": str(fid),
-                "file_hash": evidence.file_hash,
-                "original_filename": saved_info["original_filename"],
-            },
-        )
+        # Log to the chain of custody ledger
+        try:
+            from helios.core.evidence.chain_of_custody import ChainOfCustody
+            coc = ChainOfCustody()
+            coc.log_evidence(
+                evidence_id=str(evidence.id),
+                action="UPLOAD",
+                details={
+                    "file_hash": evidence.file_hash,
+                    "finding_id": str(fid),
+                    "original_filename": saved_info["original_filename"]
+                }
+            )
+        except Exception as e:
+            logger.error(f"Chain of custody logging failed for {evidence.id}: {e}")
+            # We don't rollback the DB commit here as the file is already saved
+            # and encrypted, but we log the failure loudly.
 
         return {
             "status": "success",
@@ -125,7 +114,7 @@ async def upload_evidence(
     except Exception as e:
         logger.error(f"Failed to upload evidence: {e}")
         await db.rollback()
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal server error during evidence upload")
 
 
 @router.get("/", summary="List all evidence for a project")
@@ -179,9 +168,21 @@ async def download_evidence(
     if not evidence.file_path or not os.path.exists(evidence.file_path):
         raise HTTPException(status_code=404, detail="Evidence file not found on disk")
 
-    return FileResponse(
-        evidence.file_path,
-        filename=(evidence.metadata_json or {}).get("original_filename", "evidence.bin"),
+    try:
+        with open(evidence.file_path, "rb") as f:
+            encrypted_data = f.read()
+        enc_manager = EncryptionManager()
+        plaintext = enc_manager.decrypt_data(encrypted_data)
+    except Exception as e:
+        logger.error(f"Failed to decrypt evidence {evidence_id}: {e}")
+        raise HTTPException(status_code=500, detail="Failed to read or decrypt evidence file")
+
+    filename = (evidence.metadata_json or {}).get("original_filename", "evidence.bin")
+    
+    return Response(
+        content=plaintext,
+        media_type="application/octet-stream",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'}
     )
 
 
@@ -204,13 +205,21 @@ async def verify_evidence_integrity(
         raise HTTPException(status_code=400, detail="Evidence has no file attached")
 
     verification = verify_evidence(evidence.file_path, evidence.file_hash)
-
-    await asyncio.to_thread(
-        _custody.log_evidence,
-        str(evidence.id),
-        "VERIFY",
-        {"result": verification.get("status", verification.get("valid"))},
-    )
+    
+    # Also verify the ledger integrity
+    try:
+        from helios.core.evidence.chain_of_custody import ChainOfCustody
+        coc = ChainOfCustody()
+        ledger_valid = coc.verify_ledger()
+        verification["ledger_valid"] = ledger_valid
+        if not ledger_valid:
+            verification["is_valid"] = False
+            verification["error"] = "Chain of custody ledger verification failed."
+    except Exception as e:
+        logger.error(f"Ledger verification failed: {e}")
+        verification["ledger_valid"] = False
+        verification["is_valid"] = False
+        verification["error"] = "Internal error verifying chain of custody."
 
     return {"status": "success", "data": verification}
 
@@ -236,15 +245,6 @@ async def delete_evidence(
         except OSError as e:
             logger.warning(f"Could not delete evidence file: {e}")
 
-    finding_id = evidence.finding_id  # capture before the row is gone / object expires
     await db.delete(evidence)
     await db.commit()
-
-    await asyncio.to_thread(
-        _custody.log_evidence,
-        str(evidence_id),
-        "DELETE",
-        {"finding_id": str(finding_id)},
-    )
-
     return None

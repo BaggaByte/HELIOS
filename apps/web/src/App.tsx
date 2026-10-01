@@ -11,12 +11,8 @@ import { GraphDashboard } from './features/knowledge-graph/GraphDashboard';
 import { EvidenceDashboard } from './features/evidence/EvidenceDashboard';
 import { ReportsDashboard } from './features/reports/ReportsDashboard';
 import { JsIntelDashboard } from './features/js-intel/JsIntelDashboard';
-import { ThemeProvider } from './components/providers/ThemeProvider';
 import { MainDashboard } from './features/dashboard/MainDashboard';
 import { SettingsDashboard } from './features/settings/SettingsDashboard';
-
-import { useEffect } from 'react';
-import { useProjectStore } from './stores/projectStore';
 
 // Professional 404 Component
 const NotFound = () => (
@@ -28,44 +24,24 @@ const NotFound = () => (
     </p>
     <Link 
       to="/" 
-      className="px-6 py-2.5 bg-border-active text-white font-medium rounded-lg hover:bg-opacity-90 transition-all shadow-lg hover:shadow-xl"
+      className="px-6 py-2.5 bg-border-active text-white font-medium rounded-lg hover:bg-opacity-90 transition-all shadow-lg hover:shadow-md"
     >
       Back to Dashboard
     </Link>
   </div>
 );
 
-// Loading component
-const AppLoader = () => (
-  <div className="flex flex-col items-center justify-center h-screen bg-surface-primary text-gray-200">
-    <div className="w-12 h-12 border-4 border-border-active border-t-transparent rounded-full animate-spin mb-4" />
-    <h2 className="text-xl font-medium">Initializing Project...</h2>
-  </div>
-);
+import { useAuthStore } from './stores/authStore';
+import { Login } from './features/auth/Login';
 
 function App() {
-  const { initialize, isInitializing, error } = useProjectStore();
+  const token = useAuthStore(state => state.token);
 
-  useEffect(() => {
-    initialize();
-  }, [initialize]);
-
-  if (isInitializing) {
-    return <AppLoader />;
-  }
-
-  if (error) {
-    return (
-      <div className="flex flex-col items-center justify-center h-screen bg-surface-primary text-gray-200 p-6 text-center">
-        <h1 className="text-3xl text-red-500 mb-4">Initialization Error</h1>
-        <p className="text-gray-400 max-w-md">{error}</p>
-      </div>
-    );
+  if (!token) {
+    return <Login />;
   }
 
   return (
-    // ThemeProvider wraps the app and handles applying 'dark'/'light' to <html>
-    <ThemeProvider>
       <Router>
         {/* Skip to main content link for accessibility (screen readers / keyboard users) */}
         <a 
@@ -107,7 +83,6 @@ function App() {
           </div>
         </div>
       </Router>
-    </ThemeProvider>
   );
 }
 

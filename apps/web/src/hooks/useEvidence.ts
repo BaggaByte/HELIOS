@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useProjectStore } from '../stores/projectStore';
-import { API_BASE_URL } from '../services/apiClient';
+import { apiClient } from '../services/apiClient';
 
 export interface Evidence {
   id: string;
@@ -13,49 +13,36 @@ export interface Evidence {
 
 export function useEvidence() {
   const queryClient = useQueryClient();
-  const projectId = useProjectStore(state => state.projectId);
+  const projectId = useProjectStore(state => state.activeProjectId);
 
-  const { data: evidenceList, isLoading, error } = useQuery<Evidence[]>({
+  const { data: evidenceList, isLoading, error, refetch } = useQuery<Evidence[]>({
     queryKey: ['evidence', projectId],
+    enabled: Boolean(projectId),
     queryFn: async () => {
-      if (!projectId) throw new Error('No project selected');
-      const response = await fetch(`${API_BASE_URL}/projects/${projectId}/evidence`);
-      if (!response.ok) throw new Error('Failed to fetch evidence');
-      const res = await response.json();
-      return res.data;
+      const res = await apiClient.get<any>(`/projects/${projectId}/evidence/`);
+      return res.data ?? [];
     },
-    enabled: !!projectId,
   });
 
   const uploadMutation = useMutation({
     mutationFn: async ({ file, description, type }: { file: File; description?: string; type: string }) => {
-      if (!projectId) throw new Error('No project selected');
+      if (!projectId) throw new Error('Create or select a project before uploading evidence.');
       const formData = new FormData();
       formData.append('file', file);
       if (description) formData.append('description', description);
       formData.append('type', type);
 
-      const response = await fetch(`${API_BASE_URL}/projects/${projectId}/evidence/upload`, {
-        method: 'POST',
-        body: formData,
-      });
-
-      if (!response.ok) throw new Error('Failed to upload evidence');
-      return response.json();
+      return await apiClient.post<any>(`/projects/${projectId}/evidence/upload`, formData);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['evidence'] });
+      queryClient.invalidateQueries({ queryKey: ['evidence', projectId] });
     },
   });
 
   const verifyMutation = useMutation({
     mutationFn: async (id: string) => {
-      if (!projectId) throw new Error('No project selected');
-      const response = await fetch(`${API_BASE_URL}/projects/${projectId}/evidence/${id}/verify`, {
-        method: 'POST',
-      });
-      if (!response.ok) throw new Error('Failed to verify evidence');
-      const res = await response.json();
+      if (!projectId) throw new Error('Select a project to verify evidence.');
+      const res = await apiClient.post<any>(`/projects/${projectId}/evidence/${id}/verify`, {});
       return res.data as { valid: boolean; current_hash: string; expected_hash: string; error?: string };
     },
   });
@@ -64,6 +51,7 @@ export function useEvidence() {
     evidenceList,
     isLoading,
     error,
+    refetch,
     uploadEvidence: uploadMutation.mutateAsync,
     isUploading: uploadMutation.isPending,
     verifyEvidence: verifyMutation.mutateAsync,

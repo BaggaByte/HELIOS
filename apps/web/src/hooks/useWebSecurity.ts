@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useProjectStore } from '../stores/projectStore';
-import { API_BASE_URL } from '../services/apiClient';
+import { apiClient } from '../services/apiClient';
 
 export interface WebFinding {
   id: string;
@@ -18,48 +18,31 @@ export interface WebFinding {
 
 export function useWebSecurity() {
   const queryClient = useQueryClient();
-  const projectId = useProjectStore(state => state.projectId);
+  const projectId = useProjectStore(state => state.activeProjectId);
 
-  const { data: findings, isLoading, error } = useQuery<WebFinding[]>({
+  const { data: findings, isLoading, error, refetch } = useQuery<WebFinding[]>({
     queryKey: ['web_findings', projectId],
+    enabled: Boolean(projectId),
     queryFn: async () => {
-      if (!projectId) throw new Error('No project selected');
-      const response = await fetch(`${API_BASE_URL}/projects/${projectId}/web-security/findings`);
-      if (!response.ok) {
-        throw new Error('Failed to fetch findings');
-      }
-      return response.json();
+      return await apiClient.get<WebFinding[]>(`/projects/${projectId}/web-security/findings`);
     },
-    enabled: !!projectId,
   });
 
   const uploadZapMutation = useMutation({
     mutationFn: async (file: File) => {
-      if (!projectId) throw new Error('No project selected');
+      if (!projectId) throw new Error('Create or select a project before importing a report.');
       const formData = new FormData();
       formData.append('file', file);
-
-      const response = await fetch(`${API_BASE_URL}/projects/${projectId}/web-security/ingest/zap`, {
-        method: 'POST',
-        body: formData,
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => null);
-        throw new Error(errorData?.detail || 'Failed to upload ZAP file');
-      }
-
-      return response.json();
+      return await apiClient.post<any>(`/projects/${projectId}/web-security/ingest/zap`, formData);
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['web_findings'] });
-    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['web_findings', projectId] }),
   });
 
   return {
     findings,
     isLoading,
     error,
+    refetch,
     uploadZap: uploadZapMutation.mutateAsync,
     isUploading: uploadZapMutation.isPending,
     uploadError: uploadZapMutation.error,

@@ -1,7 +1,7 @@
 import { useMutation } from '@tanstack/react-query';
 import { useState } from 'react';
+import { apiClient } from '../services/apiClient';
 import { useProjectStore } from '../stores/projectStore';
-import { API_BASE_URL } from '../services/apiClient';
 
 export interface JsAnalysisResult {
   status: string;
@@ -17,18 +17,12 @@ export interface JsAnalysisResult {
 
 export function useJsIntel() {
   const [analysisResult, setAnalysisResult] = useState<JsAnalysisResult | null>(null);
-  const projectId = useProjectStore(state => state.projectId);
+  const projectId = useProjectStore(state => state.activeProjectId);
 
   const analyzeCodeMutation = useMutation({
     mutationFn: async (code: string) => {
-      if (!projectId) throw new Error('No project selected');
-      const response = await fetch(`${API_BASE_URL}/projects/${projectId}/js-intel/analyze`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ code }),
-      });
-      if (!response.ok) throw new Error('Failed to analyze code');
-      return response.json() as Promise<JsAnalysisResult>;
+      if (!projectId) throw new Error('Create or select a project before analyzing JavaScript.');
+      return await apiClient.post<JsAnalysisResult>(`/projects/${projectId}/js-intel/analyze`, { code });
     },
     onSuccess: (data) => {
       setAnalysisResult(data);
@@ -37,16 +31,11 @@ export function useJsIntel() {
 
   const analyzeFileMutation = useMutation({
     mutationFn: async (file: File) => {
+      if (!projectId) throw new Error('Create or select a project before analyzing JavaScript.');
       const formData = new FormData();
       formData.append('file', file);
       
-      if (!projectId) throw new Error('No project selected');
-      const response = await fetch(`${API_BASE_URL}/projects/${projectId}/js-intel/analyze-file`, {
-        method: 'POST',
-        body: formData,
-      });
-      if (!response.ok) throw new Error('Failed to analyze file');
-      return response.json() as Promise<JsAnalysisResult>;
+      return await apiClient.post<JsAnalysisResult>(`/projects/${projectId}/js-intel/analyze-file`, formData);
     },
     onSuccess: (data) => {
       setAnalysisResult(data);

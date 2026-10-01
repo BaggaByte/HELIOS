@@ -1,60 +1,48 @@
 import { create } from 'zustand';
-import { apiClient } from '../services/apiClient';
+import { projectService, type CreateProjectInput, type Project } from '../services/projectService';
 
-interface Project {
-  id: string;
-  name: string;
-  description: string;
-  scope: string;
-  out_of_scope: string;
-  status: string;
-  created_at: string;
-}
+const ACTIVE_PROJECT_KEY = 'helios.activeProjectId';
 
-interface ProjectStore {
-  projectId: string | null;
-  isInitializing: boolean;
+interface ProjectState {
+  projects: Project[];
+  activeProjectId: string | null;
+  isLoading: boolean;
   error: string | null;
-  initialize: () => Promise<void>;
-  setProjectId: (id: string) => void;
+  loadProjects: () => Promise<void>;
+  createProject: (input: CreateProjectInput) => Promise<Project>;
+  setActiveProject: (projectId: string) => void;
 }
 
-export const useProjectStore = create<ProjectStore>((set, get) => ({
-  projectId: null,
-  isInitializing: true,
+export const useProjectStore = create<ProjectState>((set, get) => ({
+  projects: [],
+  activeProjectId: localStorage.getItem(ACTIVE_PROJECT_KEY),
+  isLoading: false,
   error: null,
-  
-  setProjectId: (id: string) => set({ projectId: id }),
 
-  initialize: async () => {
-    // If already initialized and we have a project, skip
-    if (get().projectId) {
-      set({ isInitializing: false });
-      return;
-    }
-
-    set({ isInitializing: true, error: null });
-    
+  loadProjects: async () => {
+    set({ isLoading: true, error: null });
     try {
-      // 1. Fetch existing projects
-      const projects = await apiClient.get<Project[]>('/projects');
-      
-      if (projects && projects.length > 0) {
-        // 2a. Use the first one
-        set({ projectId: projects[0].id, isInitializing: false });
-      } else {
-        // 2b. If no projects, create a default one
-        const defaultProject = await apiClient.post<Project>('/projects', {
-          name: 'Default Project',
-          description: 'Auto-generated default project',
-          scope: '*',
-          out_of_scope: ''
-        });
-        set({ projectId: defaultProject.id, isInitializing: false });
-      }
-    } catch (err: any) {
-      console.error('Failed to initialize project:', err);
-      set({ error: err.message || 'Failed to initialize project', isInitializing: false });
+      const projects = await projectService.list();
+      const selected = projects.some(project => project.id === get().activeProjectId)
+        ? get().activeProjectId
+        : projects[0]?.id ?? null;
+      if (selected) localStorage.setItem(ACTIVE_PROJECT_KEY, selected);
+      else localStorage.removeItem(ACTIVE_PROJECT_KEY);
+      set({ projects, activeProjectId: selected, isLoading: false });
+    } catch (error) {
+      set({ error: error instanceof Error ? error.message : 'Could not load projects', isLoading: false });
     }
-  }
+  },
+
+  createProject: async (input) => {
+    const project = await projectService.create(input);
+    localStorage.setItem(ACTIVE_PROJECT_KEY, project.id);
+    set(state => ({ projects: [project, ...state.projects], activeProjectId: project.id, error: null }));
+    return project;
+  },
+
+  setActiveProject: (projectId) => {
+    localStorage.setItem(ACTIVE_PROJECT_KEY, projectId);
+    set({ activeProjectId: projectId });
+  },
 }));

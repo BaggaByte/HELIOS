@@ -18,7 +18,7 @@ import os
 os.environ["SECRET_KEY"] = "test-secret-key-that-is-definitely-32-chars-long!!"
 os.environ["DATABASE_URL"] = "sqlite+aiosqlite:///:memory:"
 os.environ["DEBUG"] = "True"
-os.environ["OV_MODEL_PATH"] = "../models/phi-4-mini-openvino"
+os.environ["OV_MODEL_PATH"] = "../models/phi4_mini_int4_ov"
 os.environ["OV_DEVICE"] = "CPU"
 os.environ["CHROMA_PERSIST_DIR"] = "/tmp/helios_test_chroma"
 os.environ["CORS_ORIGINS"] = '["http://localhost:5173","tauri://localhost"]'
@@ -85,12 +85,14 @@ async def db_session(db_engine):
 # ── HTTP test client ──────────────────────────────────────────────────────────
 
 @pytest_asyncio.fixture(scope="function")
-async def client(db_session):
+async def client(db_session, test_user):
     """
     AsyncClient wired to the FastAPI app with:
     - Test DB session injected via dependency override
     - Chat engine stubbed to avoid loading the LLM
+    - JWT authentication injected
     """
+    from helios.api.v1.auth import create_access_token
 
     async def _override_db():
         yield db_session
@@ -103,9 +105,13 @@ async def client(db_session):
             return {"engine": "mock", "runtime_status": {"loaded": False}}
 
     app.state.chat_engine = _MockChatEngine()
+    
+    token = create_access_token(data={"sub": test_user.username})
 
     async with AsyncClient(
-        transport=ASGITransport(app=app), base_url="http://test"
+        transport=ASGITransport(app=app), 
+        base_url="http://test",
+        headers={"Authorization": f"Bearer {token}"}
     ) as ac:
         yield ac
 
@@ -115,14 +121,26 @@ async def client(db_session):
 # ── Shared fixtures ───────────────────────────────────────────────────────────
 
 @pytest_asyncio.fixture
-async def project(db_session):
-    """Create and persist a test project, return the ORM object."""
+async def test_user(db_session):
+    """Create and persist a test user."""
+    from helios.models.user import User as UserModel
+
+    u = UserModel(username="test_user", password_hash="hash")
+    db_session.add(u)
+    await db_session.commit()
+    await db_session.refresh(u)
+    return u
+
+@pytest_asyncio.fixture
+async def project(db_session, test_user):
+    """Create and persist a test project, return the ORM project object."""
     from helios.models.project import Project as ProjectModel
 
     p = ProjectModel(
         name="Test Project",
         description="Automated test project",
         scope="10.0.0.0/8",
+        created_by=test_user.id,
     )
     db_session.add(p)
     await db_session.commit()

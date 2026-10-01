@@ -1,65 +1,114 @@
+"""
+Nikto plugin — web server vulnerability scanner.
+
+Nikto supports JSON output via `-Format json -output <path>`.
+The JSON contains an `vulnerabilities` array with objects including
+`id`, `OSVDB`, `method`, `url`, `msg`.
+
+Reference: https://cirt.net/Nikto2 / https://github.com/sullo/nikto
+"""
+
+from __future__ import annotations
+
+import json
 import logging
-from typing import Dict, Any
-from helios.plugins.base import BasePlugin
-from helios.core.recon.parsers.nikto import parse_nikto
-import tempfile
 import os
+from typing import Any, Dict, List
+
+from helios.plugins.base import BasePlugin, PluginError
 
 logger = logging.getLogger(__name__)
 
+
 class NiktoPlugin(BasePlugin):
     """
-    Nikto wrapper plugin to execute real DAST scans.
+    Wrapper for Nikto (https://github.com/sullo/nikto).
+    Scans web servers for known vulnerabilities, misconfigurations, and dangerous files.
     """
 
     @property
     def name(self) -> str:
         return "nikto"
-        
+
     @property
     def version(self) -> str:
         return "1.0.0"
-        
+
     @property
     def description(self) -> str:
-        return "Executes Nikto for DAST."
-        
+        return "Executes Nikto for web server vulnerability scanning."
+
+    # ------------------------------------------------------------------
+
     def execute(self, payload: Dict[str, Any]) -> Dict[str, Any]:
-        target = payload.get("target")
+        target: str = payload.get("target", "").strip()
         if not target:
-            raise ValueError("Target is required for Nikto scan.")
-            
-        args = payload.get("args", "")
-        
-        with tempfile.NamedTemporaryFile(suffix=".json", delete=False) as tmp_file:
-            tmp_path = tmp_file.name
-            
+            raise ValueError("'target' URL or host is required for Nikto.")
+
+        if not self.is_available("nikto"):
+            return self._not_available_error()
+
+        timeout: int = int(payload.get("timeout", 600))
+        port: str = str(payload.get("port", ""))
+
+        output_file = self.temp_json_output_file(suffix=".json")
         try:
-            command = ["nikto", "-h", target, "-Format", "json", "-o", tmp_path] + args.split()
-            
-            logger.info(f"Executing real Nikto scan on target: {target}")
-            
-            result = self.run_command(command, timeout=600)
-            
-            if "error" in result and result["error"].startswith("Executable"):
-                return result
-                
+            cmd = [
+                "nikto",
+                "-h", target,
+                "-Format", "json",
+                "-output", output_file,
+                "-nointeractive",
+            ]
+            if port:
+                cmd += ["-p", port]
+
+            logger.info(f"[nikto] Scanning {target!r}")
+
             try:
-                with open(tmp_path, 'r') as f:
-                    content = f.read()
-                parsed_data = parse_nikto(content)
-            except Exception as e:
-                logger.error(f"Failed to read/parse Nikto output file: {e}")
-                parsed_data = {"findings": []}
-                
-            return {
-                "status": "success",
-                "message": f"Nikto scan completed on {target}.",
-                "findings_count": len(parsed_data.get("findings", [])),
-                "target": target,
-                "parsed_data": parsed_data,
-                "raw_output": result.get("stdout", "")
-            }
+                returncode, stdout, stderr = self.run_subprocess(cmd, timeout=timeout)
+            except PluginError as exc:
+                return self._plugin_error(exc)
+
+            vulnerabilities = self._parse_output_file(output_file)
+
         finally:
-            if os.path.exists(tmp_path):
-                os.unlink(tmp_path)
+            try:
+                os.unlink(output_file)
+            except OSError:
+                pass
+
+        return {
+            "status": "success",
+            "plugin": self.name,
+            "version": self.version,
+            "target": target,
+            "findings_count": len(vulnerabilities),
+            "findings": vulnerabilities,
+        }
+
+    # ------------------------------------------------------------------
+
+    def _parse_output_file(self, path: str) -> List[Dict[str, Any]]:
+        try:
+            with open(path, "r", encoding="utf-8", errors="replace") as fh:
+                data = json.load(fh)
+        except (OSError, json.JSONDecodeError):
+            return []
+
+        results: List[Dict[str, Any]] = []
+        # Nikto JSON can be wrapped in a host list
+        hosts = data if isinstance(data, list) else [data]
+        for host in hosts:
+            for vuln in host.get("vulnerabilities", []):
+                results.append({
+                    "title": vuln.get("msg", "Nikto Finding"),
+                    "url": vuln.get("url", ""),
+                    "method": vuln.get("method", "GET"),
+                    "nikto_id": vuln.get("id", ""),
+                    "osvdb": vuln.get("OSVDB", ""),
+                    "severity": "medium",   # Nikto doesn't report CVSS; treat as medium
+                    "status": "observed",
+                    "source": "nikto",
+                })
+        return results

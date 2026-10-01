@@ -1,51 +1,116 @@
+"""
+Gobuster plugin — directory / vhost / DNS brute-forcing.
+
+Gobuster does not natively output JSON, so we parse its stdout line-by-line.
+Each hit line looks like:
+  /admin                (Status: 200) [Size: 1234]
+
+Reference: https://github.com/OJ/gobuster
+"""
+
+from __future__ import annotations
+
 import logging
-from typing import Dict, Any
-from helios.plugins.base import BasePlugin
-from helios.core.recon.parsers.gobuster import parse_gobuster
+import re
+from typing import Any, Dict, List
+
+from helios.plugins.base import BasePlugin, PluginError
 
 logger = logging.getLogger(__name__)
 
+# Regex for the standard "dir" mode output line
+_LINE_RE = re.compile(
+    r"^(?P<path>\S+)\s+\(Status:\s*(?P<status>\d+)\)(?:\s+\[Size:\s*(?P<size>\d+)\])?",
+    re.IGNORECASE,
+)
+
+
 class GobusterPlugin(BasePlugin):
     """
-    Gobuster wrapper plugin to execute real Directory Brute-Forcing scans.
+    Wrapper for gobuster (https://github.com/OJ/gobuster).
+    Brute-forces directories / DNS subdomains / virtual hosts.
     """
 
     @property
     def name(self) -> str:
         return "gobuster"
-        
+
     @property
     def version(self) -> str:
         return "1.0.0"
-        
+
     @property
     def description(self) -> str:
-        return "Executes Gobuster for Directory Brute-Forcing."
-        
+        return "Executes Gobuster for directory and vhost brute-forcing."
+
+    # ------------------------------------------------------------------
+
     def execute(self, payload: Dict[str, Any]) -> Dict[str, Any]:
-        target = payload.get("target")
-        wordlist = payload.get("wordlist")
-        if not target or not wordlist:
-            raise ValueError("Target and wordlist are required for Gobuster scan.")
-            
-        args = payload.get("args", "")
-        
-        command = ["gobuster", "dir", "-u", target, "-w", wordlist, "-q", "--no-color"] + args.split()
-        
-        logger.info(f"Executing real Gobuster scan on target: {target}")
-        
-        result = self.run_command(command, timeout=600)
-        
-        if "error" in result and result["error"].startswith("Executable"):
-            return result
-            
-        parsed_data = parse_gobuster(result.get("stdout", ""))
-        
+        target: str = payload.get("target", "").strip()
+        wordlist: str = payload.get("wordlist", "").strip()
+        mode: str = payload.get("mode", "dir")    # dir | dns | vhost
+
+        if not target:
+            raise ValueError("'target' URL is required for Gobuster.")
+        if not wordlist:
+            raise ValueError("'wordlist' path is required for Gobuster.")
+
+        if not self.is_available("gobuster"):
+            return self._not_available_error()
+
+        timeout: int = int(payload.get("timeout", 300))
+        threads: int = int(payload.get("threads", 25))
+        status_codes: str = payload.get("status_codes", "200,204,301,302,307,401,403")
+
+        cmd = [
+            "gobuster", mode,
+            "-u", target,
+            "-w", wordlist,
+            "-t", str(threads),
+            "--no-error",
+            "-q",           # quiet — suppress banner
+        ]
+        if mode == "dir":
+            cmd += ["-s", status_codes]
+
+        logger.info(f"[gobuster] mode={mode} target={target!r}")
+
+        try:
+            returncode, stdout, stderr = self.run_subprocess(cmd, timeout=timeout)
+        except PluginError as exc:
+            return self._plugin_error(exc)
+
+        hits = self._parse_output(stdout, mode)
+
         return {
             "status": "success",
-            "message": f"Gobuster scan completed on {target}.",
-            "findings_count": len(parsed_data.get("directories", [])),
+            "plugin": self.name,
+            "version": self.version,
             "target": target,
-            "parsed_data": parsed_data,
-            "raw_output": result.get("stdout", "")
+            "mode": mode,
+            "findings_count": len(hits),
+            "hits": hits,
         }
+
+    # ------------------------------------------------------------------
+
+    def _parse_output(self, stdout: str, mode: str) -> List[Dict[str, Any]]:
+        hits: List[Dict[str, Any]] = []
+        for line in stdout.splitlines():
+            line = line.strip()
+            if not line or line.startswith("=") or line.startswith("//"):
+                continue
+
+            if mode == "dir":
+                m = _LINE_RE.match(line)
+                if m:
+                    hits.append({
+                        "path": m.group("path"),
+                        "status_code": int(m.group("status") or 0),
+                        "size": int(m.group("size") or 0) if m.group("size") else None,
+                    })
+            else:
+                # DNS / vhost mode — lines are just the discovered host/domain
+                hits.append({"host": line})
+
+        return hits

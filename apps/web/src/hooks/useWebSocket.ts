@@ -1,14 +1,16 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
+import { apiClient } from '../services/apiClient';
 
 export type WebSocketStatus = 'connecting' | 'connected' | 'disconnected' | 'error';
 
 interface UseWebSocketOptions {
   reconnectInterval?: number;
   maxRetries?: number;
+  enabled?: boolean;
 }
 
 export function useWebSocket<T = any>(url: string, options: UseWebSocketOptions = {}) {
-  const { reconnectInterval = 3000, maxRetries = 5 } = options;
+  const { reconnectInterval = 3000, maxRetries = 5, enabled = true } = options;
 
   const [status, setStatus] = useState<WebSocketStatus>('disconnected');
   const ws = useRef<WebSocket | null>(null);
@@ -20,11 +22,26 @@ export function useWebSocket<T = any>(url: string, options: UseWebSocketOptions 
   const messageHandlers = useRef<Set<(data: T) => void>>(new Set());
   const connectRef = useRef<() => void>(() => {});
 
-  const connect = useCallback(() => {
-    if (!isMounted.current) return;
+  const connect = useCallback(async () => {
+    if (!isMounted.current || !enabled || !url) return;
 
     setStatus('connecting');
-    const socket = new WebSocket(url);
+    let finalUrl = url;
+    const token = localStorage.getItem('helios_token');
+    if (token) {
+      try {
+        const data = await apiClient.post<{ticket: string}>('/auth/ws-ticket', {});
+        finalUrl += (finalUrl.includes('?') ? '&' : '?') + `ticket=${data.ticket}`;
+      } catch (err) {
+        console.error('[WS] Failed to authenticate WebSocket', err);
+        setStatus('error');
+        return;
+      }
+    }
+
+    if (!isMounted.current) return;
+
+    const socket = new WebSocket(finalUrl);
     ws.current = socket;
 
     socket.onopen = () => {
@@ -65,7 +82,7 @@ export function useWebSocket<T = any>(url: string, options: UseWebSocketOptions 
       console.error('[WS] Error', error);
       socket.close(); // Trigger onclose to start reconnect logic
     };
-  }, [url, reconnectInterval, maxRetries]);
+  }, [url, reconnectInterval, maxRetries, enabled]);
 
   useEffect(() => {
     connectRef.current = connect;
@@ -73,6 +90,10 @@ export function useWebSocket<T = any>(url: string, options: UseWebSocketOptions 
 
   useEffect(() => {
     isMounted.current = true;
+    if (!enabled || !url) {
+      setStatus('disconnected');
+      return () => { isMounted.current = false; };
+    }
     connect();
 
     return () => {
@@ -82,7 +103,7 @@ export function useWebSocket<T = any>(url: string, options: UseWebSocketOptions 
         ws.current.close();
       }
     };
-  }, [connect]);
+  }, [connect, enabled, url]);
 
   const sendMessage = useCallback((message: any) => {
     if (ws.current && ws.current.readyState === WebSocket.OPEN) {

@@ -1,65 +1,93 @@
+"""
+Amass plugin — in-depth subdomain enumeration and DNS mapping.
+
+Amass outputs one JSON object per line in `-json` mode, with:
+  name, domain, addresses (list), tag, sources (list).
+
+Reference: https://github.com/owasp-amass/amass
+"""
+
+from __future__ import annotations
+
 import logging
-from typing import Dict, Any
-from helios.plugins.base import BasePlugin
-from helios.core.recon.parsers.amass import parse_amass
-import tempfile
-import os
+from typing import Any, Dict, List
+
+from helios.plugins.base import BasePlugin, PluginError
 
 logger = logging.getLogger(__name__)
 
+
 class AmassPlugin(BasePlugin):
     """
-    Amass wrapper plugin to execute real Subdomain Enumeration scans.
+    Wrapper for Amass (https://github.com/owasp-amass/amass).
+    Provides active/passive subdomain enumeration with asset discovery.
     """
 
     @property
     def name(self) -> str:
         return "amass"
-        
+
     @property
     def version(self) -> str:
         return "1.0.0"
-        
+
     @property
     def description(self) -> str:
-        return "Executes Amass for Subdomain Enumeration."
-        
+        return "Executes Amass for in-depth subdomain enumeration and DNS mapping."
+
+    # ------------------------------------------------------------------
+
     def execute(self, payload: Dict[str, Any]) -> Dict[str, Any]:
-        target = payload.get("target")
+        target: str = payload.get("target", "").strip()
         if not target:
-            raise ValueError("Target is required for Amass scan.")
-            
-        args = payload.get("args", "")
-        
-        with tempfile.NamedTemporaryFile(suffix=".json", delete=False) as tmp_file:
-            tmp_path = tmp_file.name
-            
+            raise ValueError("'target' domain is required for Amass.")
+
+        if not self.is_available("amass"):
+            return self._not_available_error()
+
+        timeout: int = int(payload.get("timeout", 600))
+        passive: bool = payload.get("passive", True)   # default to passive — non-intrusive
+
+        cmd = [
+            "amass", "enum",
+            "-d", target,
+            "-json", "-",         # JSON-lines to stdout
+        ]
+        if passive:
+            cmd.append("-passive")
+
+        logger.info(f"[amass] Enumerating {target!r} passive={passive}")
+
         try:
-            command = ["amass", "enum", "-d", target, "-json", tmp_path] + args.split()
-            
-            logger.info(f"Executing real Amass scan on target: {target}")
-            
-            result = self.run_command(command, timeout=600)
-            
-            if "error" in result and result["error"].startswith("Executable"):
-                return result
-                
-            try:
-                with open(tmp_path, 'r') as f:
-                    content = f.read()
-                parsed_data = parse_amass(content)
-            except Exception as e:
-                logger.error(f"Failed to read/parse Amass output file: {e}")
-                parsed_data = {"subdomains": []}
-                
-            return {
-                "status": "success",
-                "message": f"Amass scan completed on {target}.",
-                "findings_count": len(parsed_data.get("subdomains", [])),
-                "target": target,
-                "parsed_data": parsed_data,
-                "raw_output": result.get("stdout", "")
-            }
-        finally:
-            if os.path.exists(tmp_path):
-                os.unlink(tmp_path)
+            returncode, stdout, stderr = self.run_subprocess(cmd, timeout=timeout)
+        except PluginError as exc:
+            return self._plugin_error(exc)
+
+        subdomains = self._parse_output(stdout)
+
+        return {
+            "status": "success",
+            "plugin": self.name,
+            "version": self.version,
+            "target": target,
+            "findings_count": len(subdomains),
+            "subdomains": subdomains,
+        }
+
+    # ------------------------------------------------------------------
+
+    def _parse_output(self, stdout: str) -> List[Dict[str, Any]]:
+        results: List[Dict[str, Any]] = []
+        seen: set = set()
+        for record in self.parse_jsonlines(stdout):
+            name = record.get("name", "")
+            if name and name not in seen:
+                seen.add(name)
+                results.append({
+                    "name": name,
+                    "domain": record.get("domain", ""),
+                    "addresses": record.get("addresses", []),
+                    "tag": record.get("tag", ""),
+                    "sources": record.get("sources", []),
+                })
+        return results

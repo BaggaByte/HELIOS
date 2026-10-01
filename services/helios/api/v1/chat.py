@@ -1,6 +1,6 @@
 import logging
 import uuid
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Request
+from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from pydantic import BaseModel, ValidationError
 from typing import List, Optional
 from sqlalchemy import select
@@ -10,6 +10,7 @@ from helios.core.chat.engine import ChatEngine, ChatMessage
 
 from helios.infrastructure.database import async_session_maker
 from helios.models.host import Host
+from helios.models.project import Project
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -21,12 +22,12 @@ class WSIncomingMessage(BaseModel):
     message_id: Optional[str] = None
     history: Optional[List[dict]] = None
 
-async def build_recon_context() -> str:
-    """Queries the database to build a concise summary of known hosts and services."""
+async def build_recon_context(project_id: str) -> str:
+    """Build a concise host and service summary limited to one project."""
     try:
         async with async_session_maker() as session:
             result = await session.execute(
-                select(Host).options(selectinload(Host.services))
+                select(Host).where(Host.project_id == project_id).options(selectinload(Host.services))
             )
             hosts = result.scalars().unique().all()
             
@@ -53,8 +54,46 @@ async def build_recon_context() -> str:
         logger.error(f"Failed to build recon context: {e}")
         return ""
 
-@router.websocket("/stream")
-async def chat_stream(websocket: WebSocket):
+import jwt
+from helios.config import get_settings
+from helios.models.user import User
+
+@router.websocket("/stream/{project_id}")
+async def chat_stream(websocket: WebSocket, project_id: str):
+    ticket = websocket.query_params.get("ticket")
+    if not ticket:
+        await websocket.close(code=1008, reason="Missing ticket")
+        return
+
+    settings = get_settings()
+    try:
+        payload = jwt.decode(ticket, settings.SECRET_KEY, algorithms=["HS256"])
+        if payload.get("type") != "ws-ticket":
+            await websocket.close(code=1008, reason="Invalid ticket type")
+            return
+        username = payload.get("sub")
+    except jwt.InvalidTokenError:
+        await websocket.close(code=1008, reason="Invalid ticket")
+        return
+
+    async with async_session_maker() as session:
+        user_result = await session.execute(select(User).where(User.username == username))
+        user = user_result.scalars().first()
+        if not user:
+            await websocket.close(code=1008, reason="Invalid user")
+            return
+
+        result = await session.execute(select(Project).where(Project.id == project_id))
+        project = result.scalars().first()
+        
+        if not project:
+            await websocket.close(code=1008, reason="A valid project is required")
+            return
+            
+        if project.created_by != user.id:
+            await websocket.close(code=1008, reason="Not authorized to access this project")
+            return
+
     await websocket.accept()
     connection_id = str(uuid.uuid4())[:8]
     logger.info(f"[WS {connection_id}] Client connected.")
@@ -88,7 +127,7 @@ async def chat_stream(websocket: WebSocket):
                 ]
 
             # 1. Fetch current reconnaissance data context
-            recon_context = await build_recon_context()
+            recon_context = await build_recon_context(project_id)
 
             # 2. Send START event (Crucial for frontend to create the message bubble)
             await websocket.send_json({
@@ -98,7 +137,7 @@ async def chat_stream(websocket: WebSocket):
 
             try:
                 # 3. Stream tokens using standard chat engine
-                async for token in engine.generate_response(msg.content, history=history, recon_context=recon_context):
+                async for token in engine.generate_response(msg.content, history=history, recon_context=recon_context, project_id=project_id):
                     await websocket.send_json({
                         "type": "token",
                         "message_id": assistant_msg_id,

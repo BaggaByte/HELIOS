@@ -1,50 +1,101 @@
+"""
+Katana plugin — next-generation web crawler.
+
+Katana outputs one JSON object per line with:
+  timestamp, request (method, endpoint, source, ...), response (status_code, headers, ...)
+
+Reference: https://docs.projectdiscovery.io/tools/katana/running
+"""
+
+from __future__ import annotations
+
 import logging
-from typing import Dict, Any
-from helios.plugins.base import BasePlugin
-from helios.core.recon.parsers.katana import parse_katana
+from typing import Any, Dict, List
+
+from helios.plugins.base import BasePlugin, PluginError
 
 logger = logging.getLogger(__name__)
 
+
 class KatanaPlugin(BasePlugin):
     """
-    Katana wrapper plugin to execute real URL Crawling scans.
+    Wrapper for Katana (https://github.com/projectdiscovery/katana).
+    Crawls a web application and maps its URL space.
     """
 
     @property
     def name(self) -> str:
         return "katana"
-        
+
     @property
     def version(self) -> str:
         return "1.0.0"
-        
+
     @property
     def description(self) -> str:
-        return "Executes Katana for Crawlers."
-        
+        return "Executes Katana for web crawling and URL endpoint discovery."
+
+    # ------------------------------------------------------------------
+
     def execute(self, payload: Dict[str, Any]) -> Dict[str, Any]:
-        target = payload.get("target")
+        target: str = payload.get("target", "").strip()
         if not target:
-            raise ValueError("Target is required for Katana scan.")
-            
-        args = payload.get("args", "")
-        
-        command = ["katana", "-u", target, "-jsonl"] + args.split()
-        
-        logger.info(f"Executing real Katana scan on target: {target}")
-        
-        result = self.run_command(command, timeout=600)
-        
-        if "error" in result:
-            return result
-            
-        parsed_data = parse_katana(result.get("stdout", ""))
-        
+            raise ValueError("'target' URL is required for Katana.")
+
+        if not self.is_available("katana"):
+            return self._not_available_error()
+
+        timeout: int = int(payload.get("timeout", 300))
+        depth: int = int(payload.get("depth", 3))
+        js_crawl: bool = payload.get("js_crawl", True)
+
+        cmd = [
+            "katana",
+            "-u", target,
+            "-json",
+            "-silent",
+            "-d", str(depth),
+            "-no-color",
+            "-timeout", "10",           # per-request timeout (seconds)
+            "-rate-limit", "50",
+        ]
+        if js_crawl:
+            cmd.append("-js-crawl")
+
+        logger.info(f"[katana] Crawling {target!r} depth={depth}")
+
+        try:
+            returncode, stdout, stderr = self.run_subprocess(cmd, timeout=timeout)
+        except PluginError as exc:
+            return self._plugin_error(exc)
+
+        endpoints = self._parse_output(stdout)
+
         return {
             "status": "success",
-            "message": f"Katana scan completed on {target}.",
-            "findings_count": len(parsed_data.get("directories", [])),
+            "plugin": self.name,
+            "version": self.version,
             "target": target,
-            "parsed_data": parsed_data,
-            "raw_output": result.get("stdout", "")
+            "findings_count": len(endpoints),
+            "endpoints": endpoints,
         }
+
+    # ------------------------------------------------------------------
+
+    def _parse_output(self, stdout: str) -> List[Dict[str, Any]]:
+        endpoints: List[Dict[str, Any]] = []
+        seen: set = set()
+        for record in self.parse_jsonlines(stdout):
+            req = record.get("request", {})
+            resp = record.get("response", {})
+            endpoint = req.get("endpoint", "")
+            if endpoint and endpoint not in seen:
+                seen.add(endpoint)
+                endpoints.append({
+                    "endpoint": endpoint,
+                    "method": req.get("method", "GET"),
+                    "source": req.get("source", ""),
+                    "status_code": resp.get("status_code", 0),
+                    "content_type": resp.get("headers", {}).get("content-type", ""),
+                })
+        return endpoints

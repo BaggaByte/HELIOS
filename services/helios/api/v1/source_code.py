@@ -10,7 +10,6 @@ from helios.infrastructure.database import get_db_session
 from helios.models.project import Project
 from helios.models.finding import Finding
 from helios.core.source_code.analyzers.secret_detector import scan_text
-from helios.core.source_code.loader import loader
 from helios.core.knowledge_graph.builder import sync_finding
 
 logger = logging.getLogger(__name__)
@@ -38,25 +37,14 @@ async def analyze_source_code(
     db: AsyncSession = Depends(get_db_session),
 ):
     project = await get_project_or_404(project_id, db)
+    
+    # 10MB length limit for source code text
+    MAX_CODE_LEN = 10 * 1024 * 1024
+    if len(request.code) > MAX_CODE_LEN:
+        raise HTTPException(status_code=413, detail="Code payload too large. Maximum size is 10MB.")
 
     try:
         findings_data = scan_text(request.code, request.filename)
-
-        # AST / Static scanning
-        ast_result = loader.analyze_code(request.code, request.language_hint, request.filename)
-        ast_findings = ast_result.get("security_findings", [])
-        
-        # Normalize AST findings to match secrets_data format
-        for ast_f in ast_findings:
-            findings_data.append({
-                "title": ast_f.get("description", "Code Vulnerability"),
-                "description": f"Found at line {ast_f.get('line', 'unknown')}: {ast_f.get('description', '')}",
-                "severity": ast_f.get("severity", "MEDIUM").lower(),
-                "confidence": "medium",
-                "cwe_id": None,
-                "impact": None,
-                "line_number": ast_f.get("line")
-            })
 
         security_findings = []
         touched_findings = []
@@ -114,7 +102,7 @@ async def analyze_source_code(
     except Exception as e:
         logger.error(f"Failed to analyse source code: {e}")
         await db.rollback()
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal server error during source code analysis")
 
 
 @router.get("/findings", summary="List all source-code findings for a project")

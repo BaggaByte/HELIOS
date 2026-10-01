@@ -16,10 +16,9 @@ class ChatMessage:
     content: str
 
 class ChatEngine:
-    def __init__(self, project_id: str):
+    def __init__(self):
         self.ai_runtime = OpenVINORuntime()
         self.vector_store = None
-        self.project_id = project_id
         
         try:
             self.vector_store = VectorStore()
@@ -27,9 +26,8 @@ class ChatEngine:
         except Exception as e:
             logger.error(f"Failed to initialize vector store: {e}")
 
-        memory_context = build_memory_context_prompt(self.project_id)
-        
-        self.system_prompt = (
+    def _build_system_prompt(self, memory_context: str) -> str:
+        return (
             "You are HELIOS, an AI-powered offensive security copilot. "
             "CRITICAL OPERATIONAL RULES:\n"
             "1. NO HALLUCINATIONS: Do not invent YARA hits, signatures, suspicious imports, packing routines, or network behavior not explicitly provided in the context.\n"
@@ -44,7 +42,7 @@ class ChatEngine:
             f"{memory_context}"
         )
 
-    def _build_prompt(self, user_prompt: str, context: str = "", history: Optional[List[ChatMessage]] = None) -> str:
+    def _build_prompt(self, system_prompt: str, user_prompt: str, context: str = "", history: Optional[List[ChatMessage]] = None) -> str:
         """
         Build a prompt using Phi-3's native chat template.
 
@@ -59,7 +57,7 @@ class ChatEngine:
         parts: list[str] = []
 
         # System block
-        parts.append(f"<|system|>\n{self.system_prompt}<|end|>\n")
+        parts.append(f"<|system|>\n{system_prompt}<|end|>\n")
 
         # History — cap at 6 turns to avoid context overflow
         if history:
@@ -85,6 +83,7 @@ class ChatEngine:
         prompt: str, 
         history: Optional[List[ChatMessage]] = None,
         recon_context: str = "",
+        project_id: str = "",
         gen_config: Optional[GenerationConfig] = None
     ) -> AsyncGenerator[str, None]:
         
@@ -96,9 +95,9 @@ class ChatEngine:
         if recon_context:
             context_str += f"## Active Reconnaissance Data:\n{recon_context}\n\n"
             
-        if self.vector_store:
+        if self.vector_store and project_id:
             try:
-                results = self.vector_store.search_findings(query=prompt, n_results=3)
+                results = self.vector_store.search_findings(query=prompt, n_results=3, project_id=project_id)
                 if results and "documents" in results and results["documents"]:
                     found_docs = results["documents"][0]
                     if found_docs:
@@ -111,7 +110,9 @@ class ChatEngine:
                 logger.warning(f"Vector search failed, proceeding without vector context: {e}")
 
         # 2. Build Augmented Prompt
-        augmented_prompt = self._build_prompt(prompt, context_str.strip(), history)
+        memory_context = build_memory_context_prompt(project_id) if project_id else ""
+        system_prompt = self._build_system_prompt(memory_context)
+        augmented_prompt = self._build_prompt(system_prompt, prompt, context_str.strip(), history)
         
         logger.info(f"Generated prompt in {(time.time() - start_time)*1000:.2f}ms. Starting inference...")
 

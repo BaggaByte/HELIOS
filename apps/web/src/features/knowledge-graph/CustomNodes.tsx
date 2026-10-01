@@ -28,13 +28,13 @@ export const CustomNode = memo(({ data }: any) => {
   const colors = colorMap[type] || colorMap.default;
 
   return (
-    <div className={cn("px-4 py-2 shadow-md rounded-md border-2 min-w-[150px] transition-all hover:scale-105", colors, "bg-surface-secondary backdrop-blur-md")}>
+    <div className={cn("px-4 py-2 shadow-md rounded-md border-2 min-w-[150px] transition-all hover:scale-105", colors, "bg-surface-secondary ")}>
       <Handle type="target" position={Position.Top} className="w-16 !bg-border-active" />
       
       <div className="flex flex-col items-center justify-center">
         <div className="flex items-center gap-2 mb-1">
           <Icon size={16} />
-          <span className="text-[10px] font-bold uppercase tracking-wider opacity-80">{type}</span>
+          <span className="text-xs font-bold uppercase tracking-wider opacity-80">{type}</span>
         </div>
         <div className="text-sm font-bold text-gray-100 text-center">{data.label}</div>
       </div>

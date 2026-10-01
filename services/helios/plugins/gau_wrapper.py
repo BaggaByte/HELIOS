@@ -1,50 +1,76 @@
+"""
+gau plugin — Get All URLs, fetch known URLs from multiple passive sources
+(Wayback Machine, Common Crawl, URLScan, AlienVault OTX).
+
+gau outputs one URL per line (plain text, not JSON).
+
+Reference: https://github.com/lc/gau
+"""
+
+from __future__ import annotations
+
 import logging
-from typing import Dict, Any
-from helios.plugins.base import BasePlugin
-from helios.core.recon.parsers.gau import parse_gau
+from typing import Any, Dict, List
+
+from helios.plugins.base import BasePlugin, PluginError
 
 logger = logging.getLogger(__name__)
 
+
 class GauPlugin(BasePlugin):
     """
-    GAU wrapper plugin to execute real URL Discovery scans.
+    Wrapper for gau (https://github.com/lc/gau).
+    Fetches known historical URLs for a domain from passive sources.
     """
 
     @property
     def name(self) -> str:
         return "gau"
-        
+
     @property
     def version(self) -> str:
         return "1.0.0"
-        
+
     @property
     def description(self) -> str:
-        return "Executes GAU for URL Discovery."
-        
+        return "Fetches known URLs from passive sources (Wayback, CommonCrawl, URLScan) using gau."
+
+    # ------------------------------------------------------------------
+
     def execute(self, payload: Dict[str, Any]) -> Dict[str, Any]:
-        target = payload.get("target")
+        target: str = payload.get("target", "").strip()
         if not target:
-            raise ValueError("Target is required for GAU scan.")
-            
-        args = payload.get("args", "")
-        
-        command = ["gau", target, "--json"] + args.split()
-        
-        logger.info(f"Executing real GAU scan on target: {target}")
-        
-        result = self.run_command(command, timeout=300)
-        
-        if "error" in result:
-            return result
-            
-        parsed_data = parse_gau(result.get("stdout", ""))
-        
+            raise ValueError("'target' domain is required for gau.")
+
+        if not self.is_available("gau"):
+            return self._not_available_error()
+
+        timeout: int = int(payload.get("timeout", 300))
+        blacklist: str = payload.get("blacklist", "png,jpg,gif,svg,css,woff,woff2,ttf,ico")
+
+        cmd = [
+            "gau",
+            target,
+            "--blacklist", blacklist,
+            "--threads", "5",
+        ]
+
+        logger.info(f"[gau] Fetching archived URLs for {target!r}")
+
+        try:
+            returncode, stdout, stderr = self.run_subprocess(cmd, timeout=timeout)
+        except PluginError as exc:
+            return self._plugin_error(exc)
+
+        urls = [u.strip() for u in stdout.splitlines() if u.strip()]
+        # Deduplicate
+        urls = list(dict.fromkeys(urls))
+
         return {
             "status": "success",
-            "message": f"GAU scan completed on {target}.",
-            "findings_count": len(parsed_data.get("directories", [])),
+            "plugin": self.name,
+            "version": self.version,
             "target": target,
-            "parsed_data": parsed_data,
-            "raw_output": result.get("stdout", "")
+            "findings_count": len(urls),
+            "urls": urls,
         }

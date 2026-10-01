@@ -23,7 +23,7 @@ async def analyze_js_endpoint(
         return analyze_js(request.code)
     except Exception as e:
         logger.error(f"JS analysis failed: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @router.post("/analyze-file", summary="Analyse an uploaded JavaScript file")
@@ -39,4 +39,4 @@ async def analyze_js_file(
         return analyze_js(code_str)
     except Exception as e:
         logger.error(f"JS file analysis failed: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal server error")

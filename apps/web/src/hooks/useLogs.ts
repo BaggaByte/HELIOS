@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useProjectStore } from '../stores/projectStore';
-import { API_BASE_URL } from '../services/apiClient';
+import { apiClient } from '../services/apiClient';
 
 export interface LogEvent {
   id: string;
@@ -23,15 +23,15 @@ export interface TimelineResponse {
 
 export function useLogs() {
   const queryClient = useQueryClient();
-  const projectId = useProjectStore(state => state.projectId);
+  const projectId = useProjectStore(state => state.activeProjectId);
   const [page, setPage] = useState(1);
   const [severityFilter, setSeverityFilter] = useState<string | null>(null);
   const [sourceFilter, setSourceFilter] = useState<string | null>(null);
 
-  const { data, isLoading, error } = useQuery<TimelineResponse>({
+  const { data, isLoading, error, refetch } = useQuery<TimelineResponse>({
     queryKey: ['log_timeline', projectId, page, severityFilter, sourceFilter],
+    enabled: Boolean(projectId),
     queryFn: async () => {
-      if (!projectId) throw new Error('No project selected');
       const params = new URLSearchParams({
         page: page.toString(),
         limit: '100', // Load 100 at a time for the feed
@@ -39,36 +39,21 @@ export function useLogs() {
       if (severityFilter) params.append('severity', severityFilter);
       if (sourceFilter) params.append('source', sourceFilter);
 
-      const response = await fetch(`${API_BASE_URL}/projects/${projectId}/logs/timeline?${params.toString()}`);
-      if (!response.ok) {
-        throw new Error('Failed to fetch timeline');
-      }
-      return response.json();
+      return await apiClient.get<TimelineResponse>(`/projects/${projectId}/logs/timeline?${params.toString()}`);
     },
-    enabled: !!projectId,
   });
 
   const ingestLogsMutation = useMutation({
     mutationFn: async ({ file, type }: { file: File, type: string }) => {
-      if (!projectId) throw new Error('No project selected');
+      if (!projectId) throw new Error('Create or select a project before importing logs.');
       const formData = new FormData();
       formData.append('file', file);
       formData.append('log_type', type);
 
-      const response = await fetch(`${API_BASE_URL}/projects/${projectId}/logs/ingest`, {
-        method: 'POST',
-        body: formData,
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => null);
-        throw new Error(errorData?.detail || 'Failed to ingest log file');
-      }
-
-      return response.json();
+      return await apiClient.post<any>(`/projects/${projectId}/logs/ingest`, formData);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['log_timeline'] });
+      queryClient.invalidateQueries({ queryKey: ['log_timeline', projectId] });
       setPage(1); // Reset to newest on new ingest
     },
   });
@@ -77,6 +62,7 @@ export function useLogs() {
     events: data?.events || [],
     isLoading,
     error,
+    refetch,
     page,
     setPage,
     severityFilter,

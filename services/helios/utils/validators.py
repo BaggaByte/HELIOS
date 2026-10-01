@@ -30,7 +30,9 @@ _HASH_LENGTHS = {32: "md5", 40: "sha1", 64: "sha256", 128: "sha512"}
 def is_valid_ip(value: str) -> bool:
     """True if `value` is a valid IPv4 or IPv6 address."""
     try:
-        ipaddress.ip_address(value)
+        ip = ipaddress.ip_address(value)
+        if ip.is_unspecified:
+            return False
         return True
     except (ValueError, TypeError):
         return False
@@ -39,7 +41,9 @@ def is_valid_ip(value: str) -> bool:
 def is_valid_cidr(value: str) -> bool:
     """True if `value` is a valid IPv4 or IPv6 network in CIDR notation."""
     try:
-        ipaddress.ip_network(value, strict=False)
+        net = ipaddress.ip_network(value, strict=False)
+        if net.prefixlen == 0:
+            return False
         return True
     except (ValueError, TypeError):
         return False
@@ -55,9 +59,14 @@ def is_valid_port(value) -> bool:
 
 
 def is_valid_domain(value: str) -> bool:
-    """True if `value` looks like a syntactically valid DNS domain name."""
+    """True if `value` looks like a syntactically valid DNS domain name (including wildcards)."""
     if not value or len(value) > 253:
         return False
+    
+    # Strip optional leading wildcard
+    if value.startswith("*."):
+        value = value[2:]
+        
     return bool(_DOMAIN_RE.match(value.rstrip(".")))
 
 
@@ -102,43 +111,80 @@ def is_valid_hash(value: str, algo: Optional[str] = None) -> bool:
     return detected == algo if algo else True
 
 
+def _normalize_domain(domain: str) -> str:
+    """Strip leading wildcards and dots for consistent matching."""
+    domain = domain.strip().rstrip(".")
+    if domain.startswith("*."):
+        domain = domain[2:]
+    elif domain.startswith("*"):
+        domain = domain[1:]
+    return domain
+
+
 def is_target_in_scope(target: str, scope_definitions: list[str]) -> bool:
     """
     True if `target` (an IP, hostname, or CIDR) falls within at least one
-    entry of `scope_definitions` (each entry itself an IP, CIDR, or domain —
-    matching a bare domain also matches its subdomains).
+    entry of `scope_definitions`.
 
-    This is a conservative, best-effort check meant to catch obvious
-    out-of-scope mistakes before a scan runs — it is not a substitute for a
-    signed rules-of-engagement document.
+    Validates both the literal target string and (if the target is a hostname)
+    its resolved IP address against the scope definitions to prevent DNS bypass.
     """
     if not scope_definitions:
         return False
 
     target = target.strip().rstrip(".")
+    if not target:
+        return False
+
+    # 1. Gather all IPs the target resolves to (if it's a domain)
+    target_ips = set()
+    if is_valid_ip(target):
+        target_ips.add(target)
+    else:
+        import socket
+        try:
+            # We resolve it to ensure we check the actual destination IP
+            target_ips.add(socket.gethostbyname(target))
+        except socket.gaierror:
+            pass # Unresolvable, we will just check the domain name itself
+
+    # Normalize scope entries upfront
+    scope_cidrs = []
+    scope_ips = set()
+    scope_domains = set()
 
     for entry in scope_definitions:
         entry = entry.strip().rstrip(".")
         if not entry or entry == "*":
             return True
-
-        # CIDR scope entry vs IP target
-        if is_valid_cidr(entry) and is_valid_ip(target):
+            
+        if is_valid_cidr(entry):
             try:
-                if ipaddress.ip_address(target) in ipaddress.ip_network(entry, strict=False):
-                    return True
+                scope_cidrs.append(ipaddress.ip_network(entry, strict=False))
             except ValueError:
-                continue
-            continue
+                pass
+        elif is_valid_ip(entry):
+            scope_ips.add(entry)
+        else:
+            scope_domains.add(_normalize_domain(entry))
 
-        # Exact IP match
-        if is_valid_ip(entry) and target == entry:
-            return True
-
-        # Domain match, including subdomains (e.g. scope "example.com"
-        # covers target "api.example.com")
-        if is_valid_domain(entry):
-            if target == entry or target.endswith("." + entry):
+    # 2. Check literal domain match (e.g. target="api.example.com" vs scope="*.example.com")
+    if not is_valid_ip(target):
+        for scope_domain in scope_domains:
+            if target == scope_domain or target.endswith("." + scope_domain):
                 return True
+
+    # 3. Check resolved IP(s) against allowed IPs and CIDRs
+    for ip_str in target_ips:
+        if ip_str in scope_ips:
+            return True
+            
+        try:
+            ip_obj = ipaddress.ip_address(ip_str)
+            for network in scope_cidrs:
+                if ip_obj in network:
+                    return True
+        except ValueError:
+            continue
 
     return False

@@ -3,68 +3,84 @@
 
 @layer base {
   :root {
-    /* Hex codes converted to RGB space-separated values for opacity support */
+    /* Charcoal dark surfaces */
     --bg-primary: 13 17 23;
     --bg-secondary: 22 27 34;
     --bg-tertiary: 33 38 45;
     --bg-hover: 48 54 61;
 
+    /* Borders */
     --border-default: 48 54 61;
     --border-active: 88 166 255;
 
+    /* Severity — reserved for security findings only.
+     * Critical: red   #f85149  high contrast, immediately alarming
+     * High:     amber  #e86300  warm orange, distinct from yellow
+     * Medium:   yellow #c8a800  saturated gold, clearly lighter than High
+     * Low:      green  #3fb950  positive/safe signal
+     * Info:     blue   #58a6ff  informational, matches accent */
     --severity-critical: 248 81 73;
-    --severity-high: 245 158 11;
-    --severity-medium: 210 153 34;
+    --severity-high: 232 99 0;
+    --severity-medium: 200 168 0;
     --severity-low: 63 185 80;
     --severity-info: 88 166 255;
 
+    /* Confidence */
     --confidence-high: 63 185 80;
     --confidence-medium: 210 153 34;
     --confidence-low: 139 148 158;
 
+    /* Typography — loaded locally via @fontsource in main.tsx */
     --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
     --font-sans: 'Inter', system-ui, sans-serif;
   }
 
   body {
-    /* m-0 is removed: Tailwind's Preflight already resets body margin to 0 */
     @apply bg-surface-primary text-gray-200 font-sans min-h-screen flex flex-col;
+    font-size: 14px;
+    line-height: 1.5;
   }
 
   #root {
-    /* Removed redundancies: max-w-none, border-none, and text-left are default HTML behaviors */
     @apply flex flex-col w-full min-h-screen;
+  }
+
+  /* Visible keyboard focus ring — inherits element's own border-radius */
+  a:focus-visible,
+  button:focus-visible,
+  input:focus-visible,
+  select:focus-visible,
+  textarea:focus-visible,
+  [tabindex]:not([tabindex="-1"]):focus-visible {
+    outline: 2px solid rgb(var(--border-active));
+    outline-offset: 3px;
   }
 }
 
 @layer utilities {
+  /* Panels distinguished by surface color, not blur */
   .glass-panel {
-    @apply bg-surface-secondary/60 backdrop-blur-md border border-border-default/50 shadow-lg;
+    @apply bg-surface-secondary border border-border-default shadow-sm;
   }
   .glass-panel-active {
-    @apply bg-surface-tertiary/70 backdrop-blur-lg border border-border-active/50 shadow-xl;
-  }
-  .neon-text {
-    text-shadow: 0 0 10px rgb(var(--border-active) / 0.5);
+    @apply bg-surface-tertiary border border-border-active shadow-md;
   }
 }
 
-/* Add this to the bottom of your index.css */
+/* Blinking cursor for streaming AI responses */
 @keyframes blink {
   0%, 100% { opacity: 1; }
   50% { opacity: 0; }
 }
 
-/* Targets the last element inside a streaming markdown response and appends a cursor */
 .streaming-cursor > *:last-child::after {
   content: '▊';
   animation: blink 1s step-end infinite;
-  /* Since you're using space-separated RGB variables now, we wrap them in rgb() */
   color: rgb(var(--border-active));
   margin-left: 2px;
 }
 
-/* Add to the bottom of index.css */
+/* AG Grid theme */
 .custom-ag-grid {
   --ag-background-color: rgb(var(--bg-secondary));
   --ag-header-background-color: rgb(var(--bg-tertiary));
@@ -78,7 +94,33 @@
   --ag-font-size: 13px;
 }
 
-/* Smooth scrolling for AG Grid */
 .custom-ag-grid .ag-body-viewport {
   scroll-behavior: smooth;
+}
+
+/* Custom scrollbar */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgb(var(--border-default));
+  border-radius: 3px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgb(var(--border-active) / 0.5);
+}
+
+/* Respect user's reduced-motion preference */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

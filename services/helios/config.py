@@ -1,10 +1,28 @@
 import secrets
+import os
+import platform
+import sys
+from pathlib import Path
 from functools import lru_cache
 from typing import List
 
 from pydantic import field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+def get_app_data_dir() -> Path:
+    if getattr(sys, 'frozen', False):
+        if platform.system() == "Windows":
+            base = Path(os.environ.get("APPDATA", "~")).expanduser()
+        elif platform.system() == "Darwin":
+            base = Path("~/Library/Application Support").expanduser()
+        else:
+            base = Path("~/.local/share").expanduser()
+        return base / "com.baggabyte.helios"
+    else:
+        return Path.cwd() / "data"
+
+DATA_DIR = get_app_data_dir()
+DATA_DIR.mkdir(parents=True, exist_ok=True)
 
 class Settings(BaseSettings):
     # ── Application ──────────────────────────────────────────────────────────
@@ -13,25 +31,25 @@ class Settings(BaseSettings):
     DEBUG: bool = False
 
     # ── Database ─────────────────────────────────────────────────────────────
-    DATABASE_URL: str = "sqlite+aiosqlite:///./helios.db"
+    DATABASE_URL: str = f"sqlite+aiosqlite:///{DATA_DIR.as_posix()}/helios.db"
     DATABASE_POOL_SIZE: int = 20
 
     # ── Vector Database ───────────────────────────────────────────────────────
-    CHROMA_PERSIST_DIR: str = "./data/chroma"
+    CHROMA_PERSIST_DIR: str = str(DATA_DIR / "chroma")
     EMBEDDING_MODEL: str = "all-MiniLM-L6-v2"
 
     # ── AI / OpenVINO ─────────────────────────────────────────────────────────
-    # Path is relative to the services/ working directory
-    OV_MODEL_PATH: str = "./models/phi-4-mini-openvino"
+    # Path defaults to the App Data directory
+    OV_MODEL_PATH: str = str(DATA_DIR / "models" / "phi4_mini_int4_ov")
     OV_DEVICE: str = "AUTO"          # AUTO lets the runtime pick NPU > GPU > CPU
-    OV_MAX_CONTEXT: int = 128000
+    OV_MAX_CONTEXT: int = 4096
     OV_TEMPERATURE: float = 0.1      # Low temp keeps security analysis grounded
     OV_TOP_P: float = 0.9
 
     # ── Security ──────────────────────────────────────────────────────────────
     # REQUIRED in production — validated below. In dev, auto-generated if absent.
     SECRET_KEY: str = ""
-    ENCRYPTION_KEY_PATH: str = "./data/keys"
+    ENCRYPTION_KEY_PATH: str = str(DATA_DIR / "keys")
     ARGON2_TIME_COST: int = 2
     ARGON2_MEMORY_COST: int = 65536  # 64 MB
 
@@ -45,7 +63,7 @@ class Settings(BaseSettings):
     ]
 
     # ── Storage ───────────────────────────────────────────────────────────────
-    UPLOAD_DIR: str = "./data/uploads"
+    UPLOAD_DIR: str = str(DATA_DIR / "uploads")
     MAX_UPLOAD_SIZE: int = 500 * 1024 * 1024  # 500 MB
 
     # ── Redis / Celery ────────────────────────────────────────────────────────
@@ -64,22 +82,43 @@ class Settings(BaseSettings):
 
     @field_validator("SECRET_KEY", mode="before")
     @classmethod
-    def _require_secret_key(cls, v: str) -> str:
+    def _require_secret_key(cls, v: str, info) -> str:
         """
-        In production (DEBUG=False and no key provided) this would raise.
-        In development we auto-generate a key and print a warning so the
-        developer is never silently running with an empty secret.
+        Provision a persistent SECRET_KEY in the OS app-data directory.
         """
+        secret_file = DATA_DIR / ".secret"
+        
+        # Load persistent key if it exists
+        if secret_file.exists():
+            with open(secret_file, "r") as f:
+                stored_key = f.read().strip()
+                if len(stored_key) >= 32:
+                    return stored_key
+
+        is_debug = info.data.get("DEBUG", False)
+        
         if not v or v in ("change-me-in-production", "changeme", ""):
             generated = secrets.token_hex(32)
-            import warnings
-            warnings.warn(
-                "\n\n⚠️  SECRET_KEY is not set or uses a default value.\n"
-                f"   A random key has been generated for this session: {generated}\n"
-                "   Set SECRET_KEY in your .env file to persist authentication.\n",
-                stacklevel=2,
-            )
-            return generated
+            try:
+                with open(secret_file, "w") as f:
+                    f.write(generated)
+                if platform.system() != "Windows":
+                    os.chmod(secret_file, 0o600)
+                return generated
+            except Exception as e:
+                if not is_debug:
+                    raise ValueError(f"Failed to provision persistent SECRET_KEY: {e}")
+                
+                import warnings
+                warnings.warn(
+                    "\n\n⚠️  Failed to persist SECRET_KEY. Using random key for session.\n",
+                    stacklevel=2,
+                )
+                return generated
+                
+        if not is_debug and len(v) < 32:
+            raise ValueError("SECRET_KEY must be at least 32 characters long when DEBUG=False.")
+            
         return v
 
     @field_validator("OV_DEVICE", mode="before")
@@ -129,6 +168,13 @@ class Settings(BaseSettings):
             # Comma-separated fallback
             return [origin.strip() for origin in stripped.split(",") if origin.strip()]
         return v
+
+    @model_validator(mode="after")
+    def validate_production_security(self) -> "Settings":
+        if not self.DEBUG:
+            dev_origins = ["http://localhost:5173", "http://localhost:3000"]
+            self.CORS_ORIGINS = [o for o in self.CORS_ORIGINS if o not in dev_origins]
+        return self
 
 
 @lru_cache

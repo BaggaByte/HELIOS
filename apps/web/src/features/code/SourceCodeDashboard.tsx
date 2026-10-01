@@ -2,27 +2,23 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Code2, FileCode2, Terminal, ShieldAlert, Activity, GitCommit, FileText, Upload } from 'lucide-react';
 import { useSourceCodeStore } from '../../stores/sourceCodeStore';
 import { cn } from '../../lib/utils';
+import { useProjectStore } from '../../stores/projectStore';
+import { getSeverityClasses } from '../../utils/severity';
 
 
 export function SourceCodeDashboard() {
-  const { analyzedFiles, selectedFileId, isLoading, fetchAnalyzedFiles, selectFile } = useSourceCodeStore();
+  const { analyzedFiles, selectedFileId, isLoading, isAnalyzing, error, fetchAnalyzedFiles, selectFile } = useSourceCodeStore();
+  const activeProjectId = useProjectStore(state => state.activeProjectId);
   const [activeTab, setActiveTab] = useState<'code' | 'findings'>('findings');
 
   useEffect(() => {
-    fetchAnalyzedFiles('default-project-id');
-  }, [fetchAnalyzedFiles]);
+    if (activeProjectId) void fetchAnalyzedFiles(activeProjectId);
+    else useSourceCodeStore.setState({ analyzedFiles: [], selectedFileId: null });
+  }, [activeProjectId, fetchAnalyzedFiles]);
 
   const selectedFile = analyzedFiles.find(f => f.id === selectedFileId);
 
-  const getSeverityStyle = (severity: string) => {
-    switch (severity) {
-      case 'CRITICAL': return 'text-severity-critical bg-severity-critical/10 border-severity-critical/30';
-      case 'HIGH': return 'text-orange-500 bg-orange-500/10 border-orange-500/30';
-      case 'MEDIUM': return 'text-yellow-500 bg-yellow-500/10 border-yellow-500/30';
-      case 'LOW': return 'text-severity-low bg-severity-low/10 border-severity-low/30';
-      default: return 'text-severity-info bg-severity-info/10 border-severity-info/30';
-    }
-  };
+
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -40,8 +36,9 @@ export function SourceCodeDashboard() {
       else if (['java'].includes(extension)) language = 'java';
       else if (['c', 'cpp', 'h', 'hpp'].includes(extension)) language = 'c++';
       
-      useSourceCodeStore.getState().analyzeSnippet(content, language, file.name);
+      if (activeProjectId) void useSourceCodeStore.getState().analyzeSnippet(activeProjectId, content, language, file.name);
     };
+    reader.onerror = () => useSourceCodeStore.setState({ error: `Could not read ${file.name}.` });
     reader.readAsText(file);
     // Reset input so the same file can be uploaded again if needed
     event.target.value = '';
@@ -57,7 +54,7 @@ export function SourceCodeDashboard() {
             <Code2 className="text-border-active" size={32} />
             Source Code Analysis
           </h1>
-          <p className="text-gray-400 mt-2">Static analysis and AST intelligence mapping.</p>
+          <p className="text-gray-400 mt-2">Static analysis. Currently uses a secret detector for hardcoded credentials.</p>
         </div>
         <div>
           <input 
@@ -66,23 +63,26 @@ export function SourceCodeDashboard() {
             onChange={handleFileUpload} 
             className="hidden" 
             accept=".py,.js,.ts,.java,.c,.cpp" 
+            disabled={!activeProjectId || isAnalyzing}
           />
           <button 
             onClick={() => fileInputRef.current?.click()}
+            disabled={!activeProjectId || isAnalyzing}
             className="px-4 py-2 rounded-lg bg-border-active/10 text-border-active border border-border-active/50 hover:bg-border-active hover:text-bg-primary transition-all flex items-center gap-2"
           >
             <Upload size={16} />
-            Analyze New File
+            {isAnalyzing ? 'Analyzing…' : 'Analyze New File'}
           </button>
         </div>
       </div>
+      {error && <div className="mb-4 rounded-lg border border-severity-critical/30 bg-severity-critical/10 p-3 text-xs text-severity-critical">{error}</div>}
 
       {/* Split-Pane Layout */}
       <div className="flex flex-1 gap-6 min-h-0 z-10">
         
         {/* Left Pane: File Explorer */}
-        <div className="w-64 flex flex-col flex-shrink-0 glass-panel rounded-2xl border border-border-default/50 overflow-hidden shadow-xl">
-          <div className="p-4 border-b border-border-default/50 bg-surface-secondary/40 backdrop-blur">
+        <div className="w-64 flex flex-col flex-shrink-0 glass-panel rounded-2xl border border-border-default/50 overflow-hidden shadow-md">
+          <div className="p-4 border-b border-border-default/50 bg-surface-secondary/40 ">
             <h3 className="text-sm font-semibold text-gray-300 flex items-center gap-2 uppercase tracking-wider">
               <Terminal size={16} /> Repository
             </h3>
@@ -94,7 +94,7 @@ export function SourceCodeDashboard() {
               </div>
             ) : analyzedFiles.length === 0 ? (
               <div className="text-center text-gray-500 py-12">
-                <p className="text-sm">No files analyzed.</p>
+                <p className="text-sm">{activeProjectId ? 'No source findings recorded.' : 'Create or select a project first.'}</p>
               </div>
             ) : (
               analyzedFiles.map(file => (
@@ -113,7 +113,7 @@ export function SourceCodeDashboard() {
                     <span className="truncate">{file.filename}</span>
                   </div>
                   {file.security_findings.length > 0 && (
-                    <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-severity-critical/20 text-severity-critical border border-severity-critical/30">
+                    <span className="px-1.5 py-0.5 rounded text-xs font-bold bg-severity-critical/20 text-severity-critical border border-severity-critical/30">
                       {file.security_findings.length}
                     </span>
                   )}
@@ -124,11 +124,11 @@ export function SourceCodeDashboard() {
         </div>
 
         {/* Right Pane: Code & Findings Viewer */}
-        <div className="flex-1 flex flex-col min-w-0 glass-panel rounded-2xl border border-border-default/50 overflow-hidden shadow-xl">
+        <div className="flex-1 flex flex-col min-w-0 glass-panel rounded-2xl border border-border-default/50 overflow-hidden shadow-md">
           {selectedFile ? (
             <>
               {/* Tab Bar */}
-              <div className="flex bg-surface-secondary/40 border-b border-border-default/50 backdrop-blur">
+              <div className="flex bg-surface-secondary/40 border-b border-border-default/50 ">
                 <button
                   onClick={() => setActiveTab('findings')}
                   className={cn(
@@ -149,7 +149,7 @@ export function SourceCodeDashboard() {
                       : "text-gray-400 border-transparent hover:text-gray-200 hover:bg-surface-tertiary/50"
                   )}
                 >
-                  <FileText size={16} /> Source Code
+                  <FileText size={16} /> {selectedFile.code ? 'Source Code' : 'Source Not Stored'}
                 </button>
               </div>
 
@@ -185,7 +185,7 @@ export function SourceCodeDashboard() {
                       <div className="space-y-4">
                         {selectedFile.security_findings.map((finding, idx) => (
                           <div key={idx} className="glass-panel p-4 rounded-xl border border-border-default/50 flex gap-4 items-start">
-                            <div className={cn("px-2 py-1 rounded text-xs font-bold border uppercase tracking-wider mt-0.5", getSeverityStyle(finding.severity))}>
+                            <div className={cn("px-2 py-1 rounded text-xs font-bold border uppercase tracking-wider mt-0.5", getSeverityClasses(finding.severity))}>
                               {finding.severity}
                             </div>
                             <div className="flex-1 min-w-0">
@@ -201,6 +201,7 @@ export function SourceCodeDashboard() {
                   </div>
                 ) : (
                   <div className="h-full overflow-y-auto p-4 custom-scrollbar">
+                    {!selectedFile.code && <p className="p-4 text-sm text-gray-400">Source text is kept in the current session only and is not stored with project findings.</p>}
                     <pre className="text-sm font-mono text-gray-300">
                       <code>
                         {selectedFile.code.split('\n').map((line, i) => {

@@ -73,7 +73,7 @@ export function Sidebar() {
   return (
     <aside
       className={cn(
-        "flex flex-col h-screen bg-surface-secondary/80 backdrop-blur-xl border-r border-border-default/50 transition-[width] duration-300 ease-in-out relative z-10",
+        "flex flex-col h-screen bg-surface-secondary/80  border-r border-border-default/50 transition-[width] duration-300 ease-in-out relative z-10",
         sidebarOpen ? "w-64" : "w-16"
       )}
       aria-label="Main Navigation"

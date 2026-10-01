@@ -75,8 +75,14 @@ class OpenVINORuntime:
         model_dir = Path(self.model_path)
 
         if not model_dir.is_absolute():
-            # Resolve relative to the process working directory (services/)
-            model_dir = Path.cwd() / model_dir
+            import sys
+            if getattr(sys, 'frozen', False):
+                # If running as PyInstaller bundle, look next to the executable
+                base_dir = Path(sys.executable).parent.parent
+            else:
+                # If running from source, assume services/ is the base
+                base_dir = Path.cwd()
+            model_dir = base_dir / model_dir
 
         if model_dir.exists() and any(model_dir.glob("*.xml")):
             logger.info(f"Model directory found at {model_dir} — loading...")

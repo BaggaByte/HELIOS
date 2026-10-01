@@ -14,6 +14,7 @@ from helios.models.event import Event
 # Update __all__ list to include them if applicable (just ensure they are imported for Base.metadata)
 from helios.models.knowledge_node import KnowledgeNode
 from helios.models.knowledge_edge import KnowledgeEdge
+from helios.models.project_file import ProjectFile
 
 # Expose all models so Alembic can discover them
 __all__ = [
@@ -32,4 +33,5 @@ __all__ = [
     "Event",
     "KnowledgeNode",
     "KnowledgeEdge",
+    "ProjectFile",
 ]
